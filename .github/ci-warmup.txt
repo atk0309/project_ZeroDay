@@ -1,0 +1,3 @@
+Temporary file to trigger the ci workflow once so the `test` status check
+registers and becomes selectable in branch protection. Safe to delete after
+the required status check has been configured on main.
