@@ -89,13 +89,6 @@ export async function build() {
     skipOnError: true,
   });
 
-  // Per-route stricter limit on /api/submit.
-  app.addHook('onRoute', (route) => {
-    if (route.path === '/api/submit') {
-      route.config = { ...(route.config ?? {}), rateLimit: { max: 5, timeWindow: '1 minute' } };
-    }
-  });
-
   // Cookie-consent bootstrap injection. Splices a tiny <link>+<script> block
   // before </body> on every public HTML response so the banner appears
   // everywhere without per-view edits. The actual UI lives in
