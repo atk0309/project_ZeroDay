@@ -16,15 +16,87 @@
     }
   }
 
-  // Type one block of lines. Each line is HTML; rendered with innerHTML so
-  // <span class="ghost">…</span> and friends from the design carry through.
+  // The typewriter lines are authored as tiny HTML snippets — only
+  // <span class="…"> styling, see the line arrays in recruit-*.ejs — so the
+  // phosphor colour classes carry through. The dynamic parts (operator alias /
+  // email) are already entity-escaped server-side before they reach the JSON,
+  // but we never feed any of that text to an HTML parser. renderSafeHtml below
+  // scans the snippet by hand and builds the DOM with createElement /
+  // createTextNode / setAttribute('class', …) only — no innerHTML, no
+  // DOMParser, no insertAdjacentHTML. <span> open/close tags become real
+  // spans; every other tag is dropped (its inner text survives as a plain text
+  // node, so it can never execute); all text is entity-decoded through a fixed
+  // table. There is therefore no "DOM text reinterpreted as HTML" sink for an
+  // attacker to reach — that is both the security property and why CodeQL's
+  // js/xss-through-dom no longer fires here (cf. web/static/admin.js, which
+  // likewise builds its live feed from createElement/textContent).
+
+  // The recruit lore only uses these, and the server-side escaper emits only
+  // the five XML entities, so a fixed table is sufficient and predictable.
+  const ENTITIES = {
+    '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"',
+    '&#39;': "'", '&apos;': "'", '&nbsp;': ' '
+  };
+  function decodeEntities(s) {
+    return s.replace(/&(?:lt|gt|amp|quot|apos|nbsp|#39);/g, (m) => ENTITIES[m] || m);
+  }
+
+  function appendText(parent, raw) {
+    if (raw) parent.appendChild(document.createTextNode(decodeEntities(raw)));
+  }
+
+  function classOf(attrs) {
+    const m = /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+    if (!m) return null;
+    return decodeEntities(m[1] != null ? m[1] : m[2] != null ? m[2] : m[3]);
+  }
+
+  // Replace target's content with a safe render of `html`. The snippet is
+  // walked left-to-right: text runs become text nodes, <span> tags push/pop
+  // real elements, and any other tag is skipped (keeping only its text).
+  // Partial input from the per-char typewriter is tolerated — an unterminated
+  // trailing tag is simply dropped, matching the old innerHTML behaviour.
+  function renderSafeHtml(target, html) {
+    target.textContent = '';
+    const src = String(html || '');
+    const stack = [target];
+    let i = 0;
+    while (i < src.length) {
+      const lt = src.indexOf('<', i);
+      if (lt === -1) {
+        appendText(stack[stack.length - 1], src.slice(i));
+        break;
+      }
+      if (lt > i) appendText(stack[stack.length - 1], src.slice(i, lt));
+      const gt = src.indexOf('>', lt);
+      if (gt === -1) break; // unterminated tag at end of a partial slice → drop it
+      const tag = src.slice(lt, gt + 1);
+      const m = /^<\s*(\/?)\s*span\b([^>]*)>$/i.exec(tag);
+      if (m && m[1]) {
+        if (stack.length > 1) stack.pop(); // </span>
+      } else if (m) {
+        const span = document.createElement('span');
+        const cls = classOf(m[2]);
+        if (cls) span.setAttribute('class', cls);
+        stack[stack.length - 1].appendChild(span);
+        stack.push(span);
+      }
+      // Non-span tags fall through: dropped, their following text stays text.
+      i = gt + 1;
+    }
+    if (!target.firstChild) target.appendChild(document.createTextNode(' '));
+  }
+
+  // Type one block of lines. Each line is an HTML snippet; rendered through
+  // renderSafeHtml (whitelist of <span class="…">) so the design's phosphor
+  // styling carries through without ever touching innerHTML.
   function runTypedBlock(host, opts = {}) {
     const lines = readLines(host);
     const speed = Number(host.dataset.speed) || opts.speed || 22;
     const lineDelay = Number(host.dataset.lineDelay) || opts.lineDelay || 200;
     const startDelay = Number(host.dataset.startDelay) || opts.startDelay || 0;
 
-    host.innerHTML = '';
+    host.textContent = '';
     const completedHolder = document.createElement('div');
     completedHolder.className = 'typed-completed';
     const currentHolder = document.createElement('div');
@@ -51,7 +123,7 @@
 
     function commitLine(text) {
       const div = document.createElement('div');
-      div.innerHTML = text || '&nbsp;';
+      renderSafeHtml(div, text);
       completedHolder.appendChild(div);
     }
 
@@ -59,12 +131,12 @@
       if (cancelled) return;
       const text = lines[currentLine] || '';
       if (charIdx <= text.length) {
-        currentSpan.innerHTML = text.slice(0, charIdx) || '&nbsp;';
+        renderSafeHtml(currentSpan, text.slice(0, charIdx));
         charIdx++;
         timer = setTimeout(tickLine, speed);
       } else {
         commitLine(text);
-        currentSpan.innerHTML = '&nbsp;';
+        currentSpan.textContent = ' ';
         currentLine++;
         charIdx = 0;
         if (currentLine >= lines.length) {
