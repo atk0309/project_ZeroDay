@@ -9,7 +9,7 @@ import * as settings from '../src/lib/settings.js';
 import { findOrCreateUser, createSession } from '../src/lib/playerAuth.js';
 import { adminSkip } from '../src/lib/progress.js';
 import { generateFlag } from '../src/lib/flags.js';
-import { verifyPassword, PASSWORD_DIGEST } from '../src/challenges/handlers/crack-wopr.js';
+import { verifyPassword, WOPR_LORE_DIGEST } from '../src/challenges/handlers/crack-wopr.js';
 
 beforeAll(() => {
   applySchema();
@@ -44,7 +44,7 @@ describe('challenge: crack-wopr (pure)', () => {
 
   it('published digest matches sha256("joshua")', () => {
     const expected = createHash('sha256').update('joshua', 'utf8').digest('hex');
-    expect(PASSWORD_DIGEST).toBe(expected);
+    expect(WOPR_LORE_DIGEST).toBe(expected);
   });
 });
 
@@ -60,7 +60,7 @@ describe('challenge: crack-wopr (route)', () => {
       headers: { cookie: `player_session=${sid}` },
     });
     expect(r.statusCode).toBe(200);
-    expect(r.body).toContain(PASSWORD_DIGEST);
+    expect(r.body).toContain(WOPR_LORE_DIGEST);
     expect(r.body).toMatch(/falken/i);
     expect(r.body).not.toContain(generateFlag(u, 'crack-wopr'));
   });
@@ -122,7 +122,7 @@ describe('challenge: crack-wopr (route)', () => {
     expect(ra.body).toContain(generateFlag(a, 'crack-wopr'));
     expect(rb.body).toContain(generateFlag(b, 'crack-wopr'));
     expect(ra.body).not.toContain(generateFlag(b, 'crack-wopr'));
-    expect(ra.body).toContain(PASSWORD_DIGEST);
-    expect(rb.body).toContain(PASSWORD_DIGEST);
+    expect(ra.body).toContain(WOPR_LORE_DIGEST);
+    expect(rb.body).toContain(WOPR_LORE_DIGEST);
   });
 });
