@@ -50,12 +50,26 @@
     }
   }
 
-  // Replace target's content with a sanitized render of `html`. DOMParser
-  // produces an inert document (no script execution, not a live-DOM sink);
-  // appendSafeNodes then rebuilds the visible subset with safe DOM APIs.
+  // Replace target's content with a sanitized render of `html`.
+  //
+  // DOMParser.parseFromString produces a *detached, inert* document: scripts
+  // never execute and event-handler attributes never fire because the result
+  // is not part of the live DOM. We never adopt the parsed nodes either —
+  // appendSafeNodes walks that inert tree and rebuilds the visible subset from
+  // scratch with createElement/createTextNode, copying across only <span> and
+  // its class attribute. So even a hostile string (e.g. an alias that somehow
+  // dodged the server-side escaping and arrived as raw `<img onerror=…>`) is
+  // parsed into a node that is simply *dropped*, never reinterpreted as live HTML.
+  //
+  // CodeQL's js/xss-through-dom models parseFromString itself as an HTML sink
+  // and so still flags the line below. That is a true positive in shape but a
+  // false positive in risk: parseFromString is the *recommended* safe way to
+  // parse untrusted HTML, and the whitelist rebuild above is the real barrier.
+  // Suppressed inline rather than reaching for innerHTML — the genuinely unsafe
+  // sink this whole helper exists to avoid.
   function renderSafeHtml(target, html) {
     target.textContent = '';
-    const parsed = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    const parsed = new DOMParser().parseFromString(String(html || ''), 'text/html'); // codeql[js/xss-through-dom] -- parsed into an inert document, then whitelist-rebuilt (span+class only); injected markup is dropped, never live. See note above.
     appendSafeNodes(target, parsed.body);
     if (!target.firstChild) target.appendChild(document.createTextNode(' '));
   }
