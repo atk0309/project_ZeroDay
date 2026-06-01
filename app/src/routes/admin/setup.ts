@@ -257,7 +257,8 @@ export async function adminSetupRoutes(app: FastifyInstance) {
     return reply.redirect('/admin/account');
   });
 
-  app.post('/admin/account/password', async (req: AdminReq, reply) => {
+  // Rate-limited inline (10/min/IP): throttle brute-force of the current password.
+  app.post('/admin/account/password', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req: AdminReq, reply) => {
     const body = (req.body ?? {}) as Record<string, string | undefined>;
     const current = body.current_password ?? '';
     const newPw = body.new_password ?? '';

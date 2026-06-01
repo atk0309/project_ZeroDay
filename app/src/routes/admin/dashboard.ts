@@ -271,7 +271,8 @@ export async function adminDashboardRoutes(app: FastifyInstance) {
   // same data the dashboard overview already aggregates. Heavy queries are
   // memoized via prepared statements at module load.
 
-  app.get('/admin/players', async (req: AdminReq, reply: FastifyReply) => {
+  // Rate-limited inline (60/min/IP): admin read, generous cap as a DoS guard.
+  app.get('/admin/players', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req: AdminReq, reply: FastifyReply) => {
     const ps = phaseState();
     const q = (req.query as Record<string, string | undefined>)?.q ?? '';
     const stuckOnly = (req.query as Record<string, string | undefined>)?.stuck === '1';
