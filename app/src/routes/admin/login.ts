@@ -152,7 +152,8 @@ export async function adminLoginRoutes(app: FastifyInstance) {
   });
 
   // POST /admin/login — handles all three flows depending on the `mode` field.
-  app.post('/admin/login', async (req, reply) => {
+  // Rate-limited inline (10/min/IP) to throttle admin-password brute-force.
+  app.post('/admin/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req, reply) => {
     const body = (req.body ?? {}) as Record<string, string | string[] | undefined>;
     // Defense in depth: if a future template ever submits `mode` twice, fastify
     // formbody parses it as an array. Pick the last value so a clicked button

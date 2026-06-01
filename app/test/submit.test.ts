@@ -76,4 +76,24 @@ describe('POST /api/submit', () => {
     expect(r.statusCode).toBe(200);
     expect((await r.json()).correct).toBe(false);
   });
+
+  it('rate-limits /api/submit to 5 requests/min/IP', async () => {
+    // Guards the per-route limit *and* its inline wiring: if anyone moves the
+    // limit back into an onRoute hook (invisible to CodeQL) or drops it, the
+    // 6th request stops returning 429 and this fails. The limiter's onRequest
+    // hook counts before the handler, so the wrong-but-shaped flag is fine.
+    const app = await build();
+    const u = findOrCreateUser('rl@example.com', 'rl');
+    const sid = createSession(u.id);
+    const fire = () =>
+      app.inject({
+        method: 'POST', url: '/api/submit',
+        headers: { cookie: `player_session=${sid}`, 'content-type': 'application/json' },
+        payload: { challenge_id: 'white-rabbit', flag: 'nope' },
+      });
+    const codes: number[] = [];
+    for (let i = 0; i < 6; i++) codes.push((await fire()).statusCode);
+    expect(codes.slice(0, 5)).not.toContain(429);
+    expect(codes[5]).toBe(429);
+  });
 });

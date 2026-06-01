@@ -117,7 +117,8 @@ export async function inviteRoutes(app: FastifyInstance) {
     (req as AdminReq).adminEmail = sess.email;
   });
 
-  app.get('/admin/api/invitations', async () => {
+  // Rate-limited inline (60/min/IP): admin read.
+  app.get('/admin/api/invitations', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async () => {
     const rows = invitations.listAll();
     const stats = computeStats(rows);
     return { invitations: rows, stats };
@@ -200,7 +201,8 @@ export async function inviteRoutes(app: FastifyInstance) {
     return { requests: rows, stats };
   });
 
-  app.post('/admin/api/invite-requests/:id/approve', async (req: AdminReq, reply) => {
+  // Rate-limited inline (30/min/IP): admin action that sends mail.
+  app.post('/admin/api/invite-requests/:id/approve', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req: AdminReq, reply) => {
     const id = Number.parseInt((req.params as Record<string, string>).id, 10);
     if (!id) return reply.code(400).send({ error: 'bad id' });
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -259,7 +261,8 @@ export async function inviteRoutes(app: FastifyInstance) {
     return { ok: true, invitation: result.invitation, mail: m };
   });
 
-  app.post('/admin/api/invite-requests/:id/deny', async (req: AdminReq, reply) => {
+  // Rate-limited inline (30/min/IP): admin action that sends mail.
+  app.post('/admin/api/invite-requests/:id/deny', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req: AdminReq, reply) => {
     const id = Number.parseInt((req.params as Record<string, string>).id, 10);
     if (!id) return reply.code(400).send({ error: 'bad id' });
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -313,7 +316,8 @@ export async function inviteRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post('/claim/:token', async (req, reply: FastifyReply) => {
+  // Rate-limited inline (10/min/IP): public account-creation + welcome mail.
+  app.post('/claim/:token', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req, reply: FastifyReply) => {
     const token = (req.params as Record<string, string>).token;
     const body = (req.body ?? {}) as Record<string, string | undefined>;
     const alias = (body.alias ?? '').trim();

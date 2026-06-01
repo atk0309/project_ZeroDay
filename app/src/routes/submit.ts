@@ -12,7 +12,10 @@ import { recordCheatDetection } from '../lib/cheat.js';
 import { enforcePlayerState, requirePlayer, type PlayerRequest } from '../middleware/playerAuthMiddleware.js';
 
 export async function submitRoutes(app: FastifyInstance) {
-  app.post('/api/submit', async (req: PlayerRequest, reply) => {
+  // Per-route rate limit declared INLINE in the route options (not via an
+  // onRoute hook) so CodeQL's js/missing-rate-limiting query can statically see
+  // it. 5/min/IP throttles brute-force flag guessing without hurting honest play.
+  app.post('/api/submit', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (req: PlayerRequest, reply) => {
     await requirePlayer(req, reply);
     if (!req.player) return;
     if (await enforcePlayerState(req, reply)) return;
