@@ -16,15 +16,60 @@
     }
   }
 
-  // Type one block of lines. Each line is HTML; rendered with innerHTML so
-  // <span class="ghost">…</span> and friends from the design carry through.
+  // The typewriter lines are authored as tiny HTML snippets (only
+  // <span class="…"> styling — see the line arrays in recruit-*.ejs) so the
+  // phosphor colour classes carry through. The dynamic parts (operator alias /
+  // email) are already entity-escaped server-side before they reach the JSON,
+  // but we never hand any of that text to innerHTML: each line is parsed in a
+  // detached document and rebuilt with createElement + textContent, allowing
+  // only <span> and its class attribute. Anything else — other tags,
+  // event-handler attributes, <script>, <img onerror=…> — is dropped, so a
+  // styled snippet renders while injected markup cannot execute. This keeps
+  // the path off the innerHTML sink that CodeQL flags as "DOM text
+  // reinterpreted as HTML" (cf. web/static/admin.js, which does the same with
+  // createElement/textContent for the live feed).
+  const ALLOWED_TAGS = { SPAN: true };
+
+  function appendSafeNodes(target, sourceNode) {
+    const kids = sourceNode.childNodes;
+    for (let i = 0; i < kids.length; i++) {
+      const n = kids[i];
+      if (n.nodeType === 3) {
+        // Text node: insert verbatim, never parsed as markup.
+        target.appendChild(document.createTextNode(n.nodeValue));
+      } else if (n.nodeType === 1 && ALLOWED_TAGS[n.tagName]) {
+        const span = document.createElement('span');
+        const cls = n.getAttribute('class');
+        if (cls) span.setAttribute('class', cls);
+        appendSafeNodes(span, n); // recurse so nested styled spans survive
+        target.appendChild(span);
+      } else if (n.nodeType === 1) {
+        // Disallowed element: drop the tag + attributes, keep its text only.
+        appendSafeNodes(target, n);
+      }
+    }
+  }
+
+  // Replace target's content with a sanitized render of `html`. DOMParser
+  // produces an inert document (no script execution, not a live-DOM sink);
+  // appendSafeNodes then rebuilds the visible subset with safe DOM APIs.
+  function renderSafeHtml(target, html) {
+    target.textContent = '';
+    const parsed = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    appendSafeNodes(target, parsed.body);
+    if (!target.firstChild) target.appendChild(document.createTextNode(' '));
+  }
+
+  // Type one block of lines. Each line is an HTML snippet; rendered through
+  // renderSafeHtml (whitelist of <span class="…">) so the design's phosphor
+  // styling carries through without ever touching innerHTML.
   function runTypedBlock(host, opts = {}) {
     const lines = readLines(host);
     const speed = Number(host.dataset.speed) || opts.speed || 22;
     const lineDelay = Number(host.dataset.lineDelay) || opts.lineDelay || 200;
     const startDelay = Number(host.dataset.startDelay) || opts.startDelay || 0;
 
-    host.innerHTML = '';
+    host.textContent = '';
     const completedHolder = document.createElement('div');
     completedHolder.className = 'typed-completed';
     const currentHolder = document.createElement('div');
@@ -51,7 +96,7 @@
 
     function commitLine(text) {
       const div = document.createElement('div');
-      div.innerHTML = text || '&nbsp;';
+      renderSafeHtml(div, text);
       completedHolder.appendChild(div);
     }
 
@@ -59,12 +104,12 @@
       if (cancelled) return;
       const text = lines[currentLine] || '';
       if (charIdx <= text.length) {
-        currentSpan.innerHTML = text.slice(0, charIdx) || '&nbsp;';
+        renderSafeHtml(currentSpan, text.slice(0, charIdx));
         charIdx++;
         timer = setTimeout(tickLine, speed);
       } else {
         commitLine(text);
-        currentSpan.innerHTML = '&nbsp;';
+        currentSpan.textContent = ' ';
         currentLine++;
         charIdx = 0;
         if (currentLine >= lines.length) {
