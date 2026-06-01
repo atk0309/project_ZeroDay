@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title : 'ZeroDay' %></title>
+  <link rel="stylesheet" href="/static/terminal.css">
+</head>
+<body>
+  <% if (typeof showCountdown === 'undefined' || showCountdown) { %>
+    <%- include('../partials/countdown', { launchAt: typeof launchAt !== 'undefined' ? launchAt : null, endAt: typeof endAt !== 'undefined' ? endAt : null, phase: typeof phase !== 'undefined' ? phase : null }); %>
+  <% } %>
+  <main class="crt">
+    <%- body %>
+  </main>
+  <script src="/static/terminal.js"></script>
+</body>
+</html>

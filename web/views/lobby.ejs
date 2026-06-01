@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>pre-launch lobby — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+<%
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  var ms = launchAt ? (new Date(launchAt).getTime() - Date.now()) : 0;
+  if (ms < 0) ms = 0;
+  var dd = Math.floor(ms / 86400000);
+  var hh = Math.floor((ms / 3600000) % 24);
+  var mm = Math.floor((ms / 60000) % 60);
+  var ss = Math.floor((ms / 1000) % 60);
+  var cdString = pad2(dd) + 'd ' + pad2(hh) + 'h ' + pad2(mm) + 'm';
+  var slotNumber = typeof slotNumber !== 'undefined' ? slotNumber : '—';
+  var cohort = typeof cohort !== 'undefined' && Array.isArray(cohort) ? cohort : [];
+  var flavor = typeof flavor !== 'undefined' && Array.isArray(flavor) ? flavor : [];
+  var inviteQuota = (typeof inviteQuota !== 'undefined' && inviteQuota) ? inviteQuota : { used: 0, limit: 2, available: 2 };
+  var inviteSlots = (typeof inviteSlots !== 'undefined' && Array.isArray(inviteSlots)) ? inviteSlots : [];
+  var inviteHistory = (typeof inviteHistory !== 'undefined' && Array.isArray(inviteHistory)) ? inviteHistory : [];
+  var pendingRequest = (typeof pendingRequest !== 'undefined') ? pendingRequest : null;
+  var flashMsg = (typeof flashMsg !== 'undefined' && flashMsg) ? flashMsg : null;
+  var devLink = (typeof devLink !== 'undefined' && devLink) ? devLink : null;
+  var inviteTtlLabel = (typeof inviteTtlLabel !== 'undefined' && inviteTtlLabel) ? inviteTtlLabel : '72h';
+
+  function relExpire(iso) {
+    if (!iso) return '';
+    var diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return 'expired';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff / 60000) % 60);
+    if (h >= 24) return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+    if (h > 0)  return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+  function relAge(iso) {
+    if (!iso) return '';
+    var diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return 'just now';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff / 60000) % 60);
+    if (h >= 24) return Math.floor(h / 24) + 'd ago';
+    if (h > 0)  return h + 'h ago';
+    return m + 'm ago';
+  }
+  var FLASH_COPY = {
+    invited:               { kind: 'ok',    text: 'invitation dispatched · token good for ' + inviteTtlLabel },
+    revoked:               { kind: 'ok',    text: 'invitation revoked · slot freed' },
+    requested:             { kind: 'ok',    text: 'request sent to admin · usual turnaround < 4h' },
+    err_quota:             { kind: 'warn',  text: 'no slots free · revoke a pending invite or ask the admin' },
+    err_duplicate_email:   { kind: 'warn',  text: 'you already have a pending invite for that address' },
+    err_already_user:      { kind: 'warn',  text: 'that email is already an operator' },
+    err_self_invite:       { kind: 'warn',  text: 'you can\'t invite your own email' },
+    err_invalid_email:     { kind: 'warn',  text: 'enter a valid email address' },
+    err_note_too_long:     { kind: 'warn',  text: 'note is too long (max 240 chars)' },
+    err_pending_exists:    { kind: 'warn',  text: 'you already have a request pending — wait for the admin' },
+    err_invalid_reason:    { kind: 'warn',  text: 'a reason is required' },
+    err_mail_failed:       { kind: 'warn',  text: 'invitation created · mail send failed · copy the claim link below and deliver it yourself' }
+  };
+  var flash = flashMsg && FLASH_COPY[flashMsg] ? FLASH_COPY[flashMsg] : null;
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+    <header class="opsbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span>zeroday · pre-launch lobby</span>
+      </div>
+      <div class="center">
+        <div class="seg"><span>phase</span><span class="phase-pill prelaunch"><span class="led pulse"></span>prelaunch</span></div>
+        <div class="seg"><span>operator</span><b><%= alias %></b></div>
+        <div class="seg"><span>slot</span><b>#<%= slotNumber %></b></div>
+      </div>
+      <div class="right">
+        <a class="btn sm" href="/manual" style="text-decoration:none">[ manual ]</a>
+        <form method="post" action="/auth/logout" style="display:inline;margin:0">
+          <button class="btn sm warn" type="submit">[ log out ]</button>
+        </form>
+      </div>
+    </header>
+
+    <div style="flex:1;overflow:auto;padding:0">
+      <!-- HERO: countdown + dossier -->
+      <div class="phase-strip" style="grid-template-columns:1.4fr 1fr">
+        <div class="countdown" id="countdown" data-target="<%= launchAt %>" data-phase="prelaunch">
+          <div class="kpi-l warn">⌁ launch · gibson goes hot in</div>
+          <div class="cd-row">
+            <span class="cd-num" data-cd="d"><%= pad2(dd) %></span><span class="cd-sep">·</span>
+            <span class="cd-num" data-cd="h"><%= pad2(hh) %></span><span class="cd-sep">·</span>
+            <span class="cd-num" data-cd="m"><%= pad2(mm) %></span><span class="cd-sep">·</span>
+            <span class="cd-num" data-cd="s"><%= pad2(ss) %></span>
+            <div class="cd-l">d · h · m · s</div>
+          </div>
+          <div class="dim" style="font-size:11.5px;line-height:1.6;margin-top:10px;letter-spacing:0.02em;max-width:540px">
+            you're early. trial 1 unlocks at d-day · the gibson stays cold until 7 days after that. until then: study the manual, settle the cohort, decide who you bring with you.
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <a class="btn" href="/manual" style="text-decoration:none">[ read the manual ▸ ]</a>
+          </div>
+        </div>
+        <div>
+          <div class="kpi-l">operator dossier</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin-top:12px;font-size:13px;line-height:1.5">
+            <span class="dim" style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase">handle</span>
+            <span class="chrome glow-strong" style="font-size:18px;letter-spacing:0.02em"><%= alias %></span>
+            <span class="dim" style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase">slot</span>
+            <span class="chrome tabular">#<%= slotNumber %> of <%= cohort.length %> issued</span>
+            <span class="dim" style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase">signed in</span>
+            <span class="chrome">session ttl 30d</span>
+            <span class="dim" style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase">status</span>
+            <span class="amber" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">◇ awaiting d-day</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- YOUR INVITES -->
+      <div class="section">
+        <div class="section-head">
+          <span class="title"><span class="led"></span>your invites · <%= inviteQuota.used %>/<%= inviteQuota.limit %></span>
+          <span class="meta"><span>each operator gets <%= inviteQuota.limit %> · tokens decay in <%= inviteTtlLabel %></span></span>
+        </div>
+        <% if (flash) { %>
+          <div style="margin:10px 22px 0;padding:10px 14px;border:1px solid <%= flash.kind === 'warn' ? 'var(--warn)' : 'var(--phosphor)' %>;background:rgba(0,0,0,0.45);font-size:11.5px;letter-spacing:0.04em;color:<%= flash.kind === 'warn' ? 'var(--warn)' : 'var(--phosphor)' %>">
+            <%= flash.text %>
+            <% if (devLink) { %>
+              <div class="dim" style="margin-top:6px;font-size:10.5px;letter-spacing:0.04em;color:var(--phosphor-dim);word-break:break-all">
+                mail offline · dev claim link: <span class="chrome"><%= devLink %></span>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+        <div style="padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+          <div>
+            <div class="kpi-l" style="margin-bottom:12px">slots</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <% for (var i = 0; i < inviteQuota.limit; i++) { var inv = inviteSlots[i]; %>
+                <div style="flex:1;min-width:240px;padding:16px;border:1px <%= inv ? 'solid' : 'dashed' %> var(--phosphor-faint);background:rgba(0,0,0,0.4);min-height:140px;display:flex;flex-direction:column;justify-content:space-between;gap:10px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span class="dim" style="font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase">slot <%= i+1 %></span>
+                    <% if (!inv) { %>
+                      <span style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--phosphor-faint)">∅ empty</span>
+                    <% } else if (inv.status === 'pending') { %>
+                      <span class="amber" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">◇ pending</span>
+                    <% } else { %>
+                      <span class="chrome" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">✓ accepted</span>
+                    <% } %>
+                  </div>
+                  <% if (!inv) { %>
+                    <form method="post" action="/lobby/invite" style="display:flex;flex-direction:column;gap:6px;margin:0">
+                      <input class="input" type="email" name="email" required placeholder="operative.email@example.com" style="font-size:11.5px;padding:5px 8px" />
+                      <textarea class="input" name="note" maxlength="240" rows="2" placeholder="(optional) why them?" style="font-size:11.5px;padding:5px 8px"></textarea>
+                      <button class="btn amber solid" type="submit" style="margin-top:2px">[ + invite operative ]</button>
+                    </form>
+                  <% } else if (inv.status === 'pending') { %>
+                    <div style="font-size:11.5px;line-height:1.6">
+                      <div class="chrome" style="word-break:break-all"><%= inv.invitee_email %></div>
+                      <% if (inv.note) { %><div class="dim" style="margin-top:4px;font-style:italic">"<%= inv.note %>"</div><% } %>
+                      <div class="dim" style="margin-top:6px;font-size:10.5px;letter-spacing:0.04em">expires in <span class="amber"><%= relExpire(inv.expires_at) %></span></div>
+                    </div>
+                    <form method="post" action="/lobby/invite/<%= inv.id %>/revoke" style="margin:0">
+                      <button class="btn sm warn" type="submit" onclick="return confirm('revoke this invitation?')">[ revoke ]</button>
+                    </form>
+                  <% } else { %>
+                    <div style="font-size:11.5px;line-height:1.6">
+                      <div class="chrome" style="word-break:break-all"><%= inv.invitee_email %></div>
+                      <div class="dim" style="margin-top:6px;font-size:10.5px;letter-spacing:0.04em">claimed <%= relAge(inv.claimed_at) %></div>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+            </div>
+            <div class="dim" style="font-size:11px;margin-top:14px;letter-spacing:0.02em;line-height:1.6">
+              you have <span class="chrome"><%= inviteQuota.available %></span> slot<%= inviteQuota.available === 1 ? '' : 's' %> free. revoke or expiry frees one. need a third? ask the admin below.
+            </div>
+          </div>
+          <div>
+            <div class="kpi-l" style="margin-bottom:12px">your invitations · history</div>
+            <% if (inviteHistory.length === 0) { %>
+              <div style="border:1px solid var(--rule);background:rgba(0,0,0,0.4);padding:20px;font-size:11.5px;text-align:center;color:var(--phosphor-faint)">
+                no expired or revoked invites yet.
+              </div>
+            <% } else { %>
+              <ul style="list-style:none;margin:0;padding:0;border:1px solid var(--rule);background:rgba(0,0,0,0.4);font-size:11.5px">
+                <% inviteHistory.forEach(function(h) { %>
+                  <li style="display:grid;grid-template-columns:1fr auto;padding:8px 12px;gap:8px;border-bottom:1px dashed var(--rule);align-items:baseline">
+                    <span class="chrome" style="word-break:break-all"><%= h.invitee_email %></span>
+                    <span class="<%= h.status === 'revoked' ? 'warn' : 'dim' %>" style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase"><%= h.status %></span>
+                  </li>
+                <% }); %>
+              </ul>
+            <% } %>
+            <div style="margin-top:18px;padding:14px 16px;border:1px dashed var(--amber);background:color-mix(in oklch, var(--amber), transparent 96%)">
+              <div class="amber" style="font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase">need another?</div>
+              <% if (pendingRequest) { %>
+                <div class="dim" style="font-size:11.5px;margin-top:6px;line-height:1.6">
+                  request pending · submitted <%= relAge(pendingRequest.created_at) %>. the admin reviews these in batches.
+                </div>
+              <% } else { %>
+                <div class="dim" style="font-size:11.5px;margin-top:6px;line-height:1.6">
+                  out of slots but know someone zeroday is missing? send a note · usual turnaround &lt; 4h.
+                </div>
+                <form method="post" action="/lobby/invite-request" style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+                  <input class="input" type="email" name="email" placeholder="(optional) who you'd invite" style="font-size:11.5px;padding:5px 8px" />
+                  <textarea class="input" name="reason" required maxlength="500" rows="2" placeholder="why · keep it short" style="font-size:11.5px;padding:5px 8px"></textarea>
+                  <button class="btn sm amber" type="submit" style="align-self:flex-start">[ request from admin ▸ ]</button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COHORT WALL -->
+      <div class="section">
+        <div class="section-head">
+          <span class="title">cohort wall · <%= cohort.length %> confirmed operators</span>
+          <span class="meta"><span>handles only · emails are private</span></span>
+        </div>
+        <div style="padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fill, minmax(140px, 1fr));gap:8px">
+          <% cohort.forEach(function(a) { var isMe = a === alias; %>
+            <div style="padding:10px 12px;border:1px solid <%= isMe ? 'var(--phosphor)' : 'var(--rule)' %>;background:<%= isMe ? 'color-mix(in oklch, var(--phosphor), transparent 88%)' : 'rgba(0,0,0,0.4)' %>;font-size:12px;text-align:center;letter-spacing:0.04em;color:<%= isMe ? 'var(--chrome)' : 'var(--phosphor-dim)' %>;<%= isMe ? 'text-shadow:0 0 4px var(--phosphor);' : '' %>">
+              <%= a %>
+              <% if (isMe) { %><div style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--phosphor);margin-top:4px">← you</div><% } %>
+            </div>
+          <% }); %>
+          <% if (cohort.length === 0) { %>
+            <div class="dim" style="grid-column:1/-1;text-align:center;font-size:11.5px;padding:18px">no operators yet · be the first</div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- LOBBY FLAVOR (existing tail-style log lines from app_settings) -->
+      <% if (flavor.length) { %>
+      <div class="section">
+        <div class="section-head"><span class="title">// transmission</span><span class="meta"><span>tail · /var/log/secure</span></span></div>
+        <div style="padding:14px 22px;font-size:11.5px;line-height:1.85;color:var(--phosphor-dim);font-family:inherit;white-space:pre-line"><% flavor.forEach(function(line){ %><%= line.split('{cd}').join(cdString) %>
+<% }); %></div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script src="/static/terminal.js"></script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<%- include('_head', { title: 'players — zeroday operator console' }) %>
+</head>
+<body>
+<%
+  var stuckCount = stuck ? stuck.length : 0;
+  var movingCount = players.filter(function(p){ return (p.current_ordinal||1) > 1; }).length;
+  var freshCount = players.filter(function(p){ return (p.current_ordinal||1) === 1; }).length;
+  var skippedCount = players.filter(function(p){ return (p.admin_skips||0) > 0; }).length;
+  // histogram bucket counts
+  var histo = Array.from({length: total}, function(){ return 0; });
+  var histoStuck = Array.from({length: total}, function(){ return 0; });
+  players.forEach(function(p){
+    var s = p.current_ordinal || 1;
+    if (s >= 1 && s <= total) histo[s-1]++;
+    if (p.last_advance_at) {
+      var hrs = (Date.now() - new Date(p.last_advance_at).getTime()) / 3600000;
+      if (hrs > 20 && s >= 1 && s <= total) histoStuck[s-1]++;
+    }
+  });
+  var maxHisto = 1; histo.forEach(function(n){ if (n > maxHisto) maxHisto = n; });
+
+  // apply filter + sort
+  var rows = visiblePlayers.slice();
+  if (filter === 'stuck') {
+    rows = rows.filter(function(p){
+      if (!p.last_advance_at) return false;
+      return (Date.now() - new Date(p.last_advance_at).getTime()) / 3600000 > 20;
+    });
+  } else if (filter === 'moving') {
+    rows = rows.filter(function(p){ return (p.current_ordinal||1) > 1; });
+  } else if (filter === 'new') {
+    rows = rows.filter(function(p){ return (p.current_ordinal||1) === 1; });
+  } else if (filter === 'skipped') {
+    rows = rows.filter(function(p){ return (p.admin_skips||0) > 0; });
+  }
+  if (sort === 'stage') rows.sort(function(a,b){ return (b.current_ordinal||0) - (a.current_ordinal||0) || (b.solves||0) - (a.solves||0); });
+  if (sort === 'hints') rows.sort(function(a,b){ return (b.hints||0) - (a.hints||0); });
+  if (sort === 'last') rows.sort(function(a,b){
+    var da = a.last_advance_at ? new Date(a.last_advance_at).getTime() : 0;
+    var db = b.last_advance_at ? new Date(b.last_advance_at).getTime() : 0;
+    return db - da;
+  });
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+    <%- include('_topbar', { phase: phase, launchAt: launchAt, endAt: endAt, mailConfigured: mailConfigured, adminEmail: adminEmail, variation: variation }) %>
+    <div class="app-body">
+      <%- include('_sidenav', { active: 'players', playersCount: players.length, stuckCount: stuckCount, queueCount: stuckCount, totalChallenges: total, phase: phase }) %>
+      <div class="workspace">
+        <!-- TABS -->
+        <div style="display:flex;gap:0;padding:0 22px;border-bottom:1px solid var(--rule-strong);background:rgba(0,0,0,0.4);align-items:stretch">
+          <% var tabs = [
+            {id:'roster', label:'roster', glyph:'◈'},
+            {id:'invitations', label:'invitations', glyph:'✉'},
+            {id:'requests', label:'requests', glyph:'◇'},
+            {id:'emails', label:'email templates', glyph:'✎'}
+          ]; %>
+          <% tabs.forEach(function(t) { var act = (tab === t.id); %>
+            <a href="/admin/players?tab=<%= t.id %>" style="text-decoration:none;background:<%= act ? 'color-mix(in oklch, var(--phosphor), transparent 92%)' : 'transparent' %>;border:none;border-bottom:2px solid <%= act ? 'var(--phosphor)' : 'transparent' %>;padding:14px 20px;color:<%= act ? 'var(--chrome)' : 'var(--phosphor-faint)' %>;font:inherit;font-size:11.5px;letter-spacing:0.16em;text-transform:uppercase;display:flex;gap:8px;align-items:center;<%= act ? 'text-shadow:0 0 4px var(--phosphor);' : '' %>">
+              <span style="opacity:0.7"><%= t.glyph %></span><span><%= t.label %></span>
+            </a>
+          <% }); %>
+        </div>
+
+        <% if (tab === 'roster') { %>
+        <!-- COHORT HISTOGRAM STRIP -->
+        <div class="phase-strip" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+          <div>
+            <div class="kpi-l">cohort histogram · operators per stage</div>
+            <div style="display:grid;grid-template-columns:repeat(<%= total %>, 1fr);gap:2px;margin-top:10px;height:56px;align-items:flex-end">
+              <% histo.forEach(function(n, i) { var h = Math.round((n / maxHisto) * 100); var hot = histoStuck[i] > 0; %>
+                <div title="stage <%= i+1 %>: <%= n %> operators<%= hot ? ', '+histoStuck[i]+' stuck' : '' %>" style="display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;height:100%;position:relative">
+                  <% if (n > 0) { %><div style="height:<%= h %>%;background:<%= hot ? 'color-mix(in oklch, var(--warn), transparent 50%)' : 'color-mix(in oklch, var(--phosphor), transparent 50%)' %>;box-shadow:<%= hot ? '0 0 6px color-mix(in oklch, var(--warn), transparent 60%) inset' : '0 0 6px color-mix(in oklch, var(--phosphor), transparent 70%) inset' %>"><span style="position:absolute;top:-2px;left:0;right:0;text-align:center;font-size:9.5px;color:var(--chrome)"><%= n %></span></div><% } %>
+                </div>
+              <% }); %>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(<%= total %>, 1fr);gap:2px;margin-top:4px">
+              <% for (var k = 1; k <= total; k++) { %>
+                <div style="font-size:9px;text-align:center;color:var(--phosphor-faint);letter-spacing:0.04em"><%= String(k).padStart(2,'0') %></div>
+              <% } %>
+            </div>
+          </div>
+          <div>
+            <div class="kpi-l">total recruits</div>
+            <div class="kpi-v"><%= players.length %><span class="unit">ops</span></div>
+            <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em">verified · <span class="chrome"><%= players.filter(function(p){return p.verified_at}).length %></span></div>
+          </div>
+          <div>
+            <div class="kpi-l">in motion</div>
+            <div class="kpi-v" style="color:var(--phosphor)"><%= movingCount %></div>
+            <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em">past trial 1 · advancing</div>
+          </div>
+          <div>
+            <div class="kpi-l">attention</div>
+            <div class="kpi-v" style="<%= stuckCount > 0 ? 'color:var(--warn);text-shadow:0 0 6px var(--warn)' : 'color:var(--phosphor)' %>"><%= stuckCount %></div>
+            <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em">stuck &gt; 20h · auto-drip 09:00</div>
+          </div>
+        </div>
+
+        <!-- CONTROL BAR -->
+        <form method="get" action="/admin/players" style="padding:12px 22px;border-bottom:1px solid var(--rule);display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,0.3)">
+          <input type="hidden" name="tab" value="roster" />
+          <input class="input" name="q" value="<%= q %>" placeholder="alias or email · search" style="max-width:320px;font-size:11.5px;padding:5px 10px" />
+          <span class="dim" style="font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;margin-left:8px">filter</span>
+          <div class="seg-radio" style="height:26px">
+            <% [{v:'all',l:'all · '+players.length},{v:'moving',l:'moving · '+movingCount},{v:'stuck',l:'stuck · '+stuckCount},{v:'new',l:'t1 · '+freshCount},{v:'skipped',l:'skipped · '+skippedCount}].forEach(function(o) { %>
+              <button type="submit" name="filter" value="<%= o.v %>" class="<%= filter === o.v ? 'active' : '' %>"><%= o.l %></button>
+            <% }); %>
+          </div>
+          <span class="dim" style="font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;margin-left:8px">sort</span>
+          <div class="seg-radio" style="height:26px">
+            <% [{v:'stage',l:'stage'},{v:'hints',l:'hints'},{v:'last',l:'last adv'}].forEach(function(o) { %>
+              <button type="submit" name="sort" value="<%= o.v %>" class="<%= sort === o.v ? 'active' : '' %>"><%= o.l %></button>
+            <% }); %>
+          </div>
+          <span style="flex:1"></span>
+          <% if (q || filter !== 'all' || sort !== 'stage') { %>
+            <a href="/admin/players?tab=roster" class="btn sm">[ clear ]</a>
+          <% } %>
+        </form>
+
+        <!-- ROSTER TABLE -->
+        <div class="section">
+          <div class="section-head">
+            <span class="title"><span class="led"></span>operators · roster</span>
+            <span class="meta">
+              <span><b><%= rows.length %></b>/<%= players.length %> shown</span>
+              <span>tos = time on current stage</span>
+            </span>
+          </div>
+          <div style="overflow:auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:24px"></th>
+                  <th>alias</th>
+                  <th>email</th>
+                  <th>stage</th>
+                  <th style="width:180px">progress</th>
+                  <th class="num">solves</th>
+                  <th class="num">attempts</th>
+                  <th class="num">hints</th>
+                  <th class="num">skips</th>
+                  <th>tos</th>
+                  <th>last adv</th>
+                  <th style="width:120px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% rows.forEach(function(p) {
+                  var stage = p.current_ordinal || 1;
+                  var hours = p.last_advance_at ? (Date.now() - new Date(p.last_advance_at).getTime()) / 3600000 : 0;
+                  var tosClass = hours > 20 ? 'hot' : hours > 6 ? 'warm' : '';
+                  var rowClass = hours > 20 ? 'stuck' : '';
+                  var ch = challenges.find(function(c){ return c.ordinal === stage; });
+                  var tosLabel = hours < 1 ? Math.round(hours*60)+'m' : Math.floor(hours)+'h';
+                %>
+                  <tr class="<%= rowClass %>" data-player-id="<%= p.id %>">
+                    <td><span class="tos <%= tosClass %>" title="<%= Math.round(hours*10)/10 %>h on stage"></span></td>
+                    <td class="alias"><%= p.alias %><% if (p.admin_skips > 0) { %> <span class="warn" title="admin-skipped">⚠</span><% } %></td>
+                    <td class="dim" style="font-size:11px"><%= p.email %></td>
+                    <td>
+                      <span class="chrome"><%= String(stage).padStart(2,'0') %></span><span class="dim">/<%= total %></span>
+                      <% if (ch) { %><span class="dim" style="font-size:10px;margin-left:8px;letter-spacing:0.08em;text-transform:uppercase">· <%= ch.category %></span><% } %>
+                    </td>
+                    <td>
+                      <span class="stage-bar" style="width:152px">
+                        <% for (var i = 1; i <= total; i++) { %><i class="<%= i < stage ? 'done' : (i === stage ? 'now' : '') %>"></i><% } %>
+                      </span>
+                    </td>
+                    <td class="num dim"><%= p.solves || 0 %></td>
+                    <td class="num dim"><%= p.attempts || 0 %></td>
+                    <td class="num dim"><%= p.hints || 0 %></td>
+                    <td class="num dim"><%= p.admin_skips > 0 ? p.admin_skips : '—' %></td>
+                    <td class="<%= tosClass === 'hot' ? 'warn' : tosClass === 'warm' ? 'amber' : 'dim' %>" style="font-size:11.5px"><%= tosLabel %></td>
+                    <td class="dim"><%= p.last_advance_at ? new Date(p.last_advance_at).toISOString().slice(11,16) : '—' %></td>
+                    <td class="action" data-no-drawer="1">
+                      <button type="button" class="btn sm" data-open-drawer="<%= p.id %>">[ open ]</button>
+                    </td>
+                  </tr>
+                <% }); %>
+                <% if (rows.length === 0) { %>
+                  <tr><td colspan="12" style="text-align:center;color:var(--phosphor-faint);padding:40px;font-size:12px">no operators match. clear filters or widen the search.</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <% } else if (tab === 'invitations') { %>
+        <%- include('_players_invitations') %>
+        <% } else if (tab === 'requests') { %>
+        <%- include('_players_requests') %>
+        <% } else if (tab === 'emails') { %>
+        <%- include('_players_emails') %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('_drawer') %>
+<script src="/static/admin.js"></script>
+</body>
+</html>

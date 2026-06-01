@@ -1,0 +1,158 @@
+<!-- REQUESTS tab — operator → admin extra-slot queue (PR2). -->
+<%
+  var rows = (typeof requestRows !== 'undefined' && Array.isArray(requestRows)) ? requestRows : [];
+  var stats = (typeof requestStats !== 'undefined' && requestStats) ? requestStats : { pending: 0, approved: 0, denied: 0, approval_rate: 0, avg_ttd: '—' };
+  var pending = rows.filter(function(r){ return r.status === 'pending'; });
+  var historic = rows.filter(function(r){ return r.status !== 'pending'; }).slice(0, 20);
+
+  function relAge(iso) {
+    if (!iso) return '—';
+    var diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return 'just now';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff / 60000) % 60);
+    if (h >= 24) return Math.floor(h/24) + 'd ago';
+    if (h > 0)   return h + 'h ago';
+    return m + 'm ago';
+  }
+%>
+<div class="phase-strip" style="grid-template-columns:1.4fr 1fr 1fr">
+  <div>
+    <div class="kpi-l warn">⌁ extra-invite requests · awaiting approval</div>
+    <div class="kpi-v" style="color:var(--amber);font-size:32px"><%= stats.pending %><span class="unit">pending</span></div>
+    <div class="dim" style="font-size:11px;margin-top:8px;letter-spacing:0.04em">
+      operators who exhausted their two slots and asked for one more.<br/>
+      approve dispatches an invite immediately · same ttl.
+    </div>
+  </div>
+  <div>
+    <div class="kpi-l">policy</div>
+    <div class="dim" style="font-size:11.5px;margin-top:8px;line-height:1.7;letter-spacing:0.02em">
+      quota · <span class="chrome">2 hard / op</span><br/>
+      requests · <span class="chrome">1 pending / op</span><br/>
+      approval · <span class="chrome">admin only</span><br/>
+      audit · <span class="chrome">request_approve · request_deny</span>
+    </div>
+  </div>
+  <div>
+    <div class="kpi-l">historic</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:11.5px">
+      <div><span class="dim">approved</span></div><div class="chrome tabular"><%= stats.approved %></div>
+      <div><span class="dim">denied</span></div><div class="warn tabular"><%= stats.denied %></div>
+      <div><span class="dim">avg ttd</span></div><div class="chrome"><%= stats.avg_ttd %></div>
+      <div><span class="dim">approval rate</span></div><div class="chrome"><%= (stats.approved + stats.denied) > 0 ? stats.approval_rate + '%' : '—' %></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <span class="title"><span class="led warn"></span>queue · <%= pending.length %></span>
+    <span class="meta"><span>oldest first</span></span>
+  </div>
+  <% if (pending.length === 0) { %>
+    <div style="padding:48px 22px;text-align:center;color:var(--phosphor-faint);font-size:12px;line-height:1.7">
+      <div style="font-size:14px;color:var(--phosphor-dim);letter-spacing:0.04em;margin-bottom:8px">no requests pending</div>
+      operators submit extra-invite requests from the lobby. they appear here.
+    </div>
+  <% } else { %>
+    <div style="overflow:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>requester</th>
+            <th>invitee email</th>
+            <th>reason</th>
+            <th>age</th>
+            <th style="width:280px">decide</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pending.forEach(function(r) { %>
+            <tr>
+              <td class="alias"><%= r.requester_alias || '—' %></td>
+              <td class="dim" style="font-size:11px;word-break:break-all"><%= r.invitee_email || '—' %></td>
+              <td class="dim" style="font-size:11px;max-width:340px;line-height:1.5"><%= r.reason %></td>
+              <td class="dim" style="font-size:11px"><%= relAge(r.created_at) %></td>
+              <td class="action" style="white-space:normal">
+                <form data-request-decision="<%= r.id %>" data-action="approve" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+                  <input class="input" name="invitee_email" placeholder="<%= r.invitee_email || 'invitee email' %>" type="email" <%= r.invitee_email ? '' : 'required' %> style="font-size:11px;padding:3px 6px;width:160px" value="<%= r.invitee_email || '' %>" />
+                  <input class="input" name="note" placeholder="note" style="font-size:11px;padding:3px 6px;width:120px" />
+                  <button class="btn sm solid" type="submit">[ approve ]</button>
+                  <button class="btn sm warn" type="button" data-deny="<%= r.id %>">[ deny ]</button>
+                </form>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<% if (historic.length > 0) { %>
+  <div class="section">
+    <div class="section-head">
+      <span class="title">decided · <%= historic.length %></span>
+      <span class="meta"><span>most recent first</span></span>
+    </div>
+    <div style="overflow:auto">
+      <table class="tbl">
+        <thead>
+          <tr><th>requester</th><th>status</th><th>decided by</th><th>note</th><th>age</th></tr>
+        </thead>
+        <tbody>
+          <% historic.forEach(function(r) { %>
+            <tr>
+              <td class="alias"><%= r.requester_alias || '—' %></td>
+              <td><span style="color:<%= r.status === 'approved' ? 'var(--phosphor)' : 'var(--warn)' %>;font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase"><%= r.status %></span></td>
+              <td class="dim" style="font-size:11px"><%= r.decided_by || '—' %></td>
+              <td class="dim" style="font-size:11px;max-width:320px"><%= r.decision_note || '—' %></td>
+              <td class="dim" style="font-size:11px"><%= relAge(r.decided_at) %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>
+
+<script>
+(function(){
+  document.querySelectorAll('[data-request-decision]').forEach(function(form){
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var id = form.getAttribute('data-request-decision');
+      var fd = new FormData(form);
+      fetch('/admin/api/invite-requests/' + id + '/approve', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invitee_email: fd.get('invitee_email'),
+          note: fd.get('note') || null,
+        }),
+      }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+        .then(function(o){
+          if (!o.ok) { alert('approve failed · ' + (o.j.error || 'unknown')); return; }
+          window.location.reload();
+        }).catch(function(e){ alert('approve failed · ' + e.message); });
+    });
+  });
+  document.querySelectorAll('[data-deny]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = btn.getAttribute('data-deny');
+      var note = prompt('reason for denial (required):');
+      if (!note || !note.trim()) return;
+      fetch('/admin/api/invite-requests/' + id + '/deny', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note.trim() }),
+      }).then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+        .then(function(){ window.location.reload(); })
+        .catch(function(e){ alert('deny failed · ' + e.message); });
+    });
+  });
+})();
+</script>

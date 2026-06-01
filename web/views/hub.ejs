@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title><%= phase === 'frozen' ? 'lights out' : 'operator console' %> — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+<%
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function fmtTos(min) {
+    if (min < 60) return min + 'm';
+    var h = Math.floor(min / 60);
+    var m = min % 60;
+    return h + 'h ' + pad2(m) + 'm';
+  }
+  function relAge(iso) {
+    if (!iso) return '—';
+    var diff = Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime();
+    if (diff < 60000) return 'just now';
+    var m = Math.floor(diff / 60000);
+    if (m < 60) return m + 'm ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.floor(h / 24) + 'd ago';
+  }
+  var trial = currentTrial || null;
+  var lastAdvMs = lastAdvanceAt ? (Date.now() - new Date(lastAdvanceAt + (lastAdvanceAt.endsWith('Z') ? '' : 'Z')).getTime()) : 0;
+  var tosMin = Math.max(0, Math.floor(lastAdvMs / 60000));
+  var tosTone = tosMin > 240 ? 'warn' : tosMin > 120 ? 'amber' : 'phosphor';
+  var attemptsTone = attemptsOnCurrent > 20 ? 'amber' : 'phosphor';
+  var board = leaderboard || [];
+  var phaseClass = phase === 'frozen' ? 'frozen' : 'live';
+  var phaseLabel = phase === 'frozen' ? 'frozen' : 'live';
+  var cdLabel = phase === 'frozen' ? 'lights out' : 'gibson goes cold in';
+  var cdTarget = phase === 'frozen' ? null : (endAt || null);
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+
+    <!-- ── opsbar ─────────────────────────────────────────── -->
+    <header class="opsbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span>zeroday · operator console</span>
+      </div>
+      <div class="center">
+        <div class="seg">
+          <span>phase</span>
+          <span class="phase-pill <%= phaseClass %>"><span class="led <%= phase === 'frozen' ? 'cold' : 'warn pulse' %>"></span><%= phaseLabel %></span>
+        </div>
+        <div class="seg"><span>trial</span><b><%= pad2(currentOrdinal) %> / <%= pad2(total) %></b></div>
+        <div class="seg"><span><%= cdLabel %></span><b class="<%= phase === 'frozen' ? 'cold' : 'amber' %>" data-cd-display data-cd-target="<%= cdTarget || '' %>" data-cd-mode="cold"><%= phase === 'frozen' ? 'transmission ended' : '—' %></b></div>
+        <div class="seg"><span>clock</span><b data-wall-clock>--:--:-- utc</b></div>
+      </div>
+      <div class="right">
+        <span class="dim">handle</span>
+        <span class="uname glow"><%= alias %></span>
+        <a class="btn sm" href="/manual" style="text-decoration:none">[ manual ]</a>
+        <form method="post" action="/auth/logout" style="display:inline;margin:0">
+          <button class="btn sm warn" type="submit">[ log out ]</button>
+        </form>
+      </div>
+    </header>
+
+    <!-- ── body ─────────────────────────────────────────── -->
+    <div style="flex:1;overflow:auto;display:flex;flex-direction:column;min-height:0">
+      <div style="display:grid;grid-template-columns:1fr 360px;flex:1;min-height:0">
+
+        <!-- LEFT MAIN ─────────────────────────────────────── -->
+        <main style="border-right:1px solid var(--rule);display:flex;flex-direction:column;min-height:0">
+
+          <!-- progress strip · 19 cells -->
+          <div style="padding:14px 22px;border-bottom:1px solid var(--rule);background:rgba(0,0,0,0.35);flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+              <span class="kpi-l">your run · trial <%= currentOrdinal %> / <%= total %></span>
+              <span class="dim" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase">
+                <%= myPoints %> pts · <%= attemptsOnCurrent %> attempts · <%= myHintsTotal %> hints used
+              </span>
+            </div>
+            <div class="prog-map">
+              <% challenges.forEach(function(c) {
+                var cls = '';
+                if (c.ordinal < currentOrdinal) cls = 'done';
+                else if (c.ordinal === currentOrdinal && phase !== 'frozen' && !completed) cls = 'now';
+              %>
+                <div class="prog-cell <%= cls %>"><%= c.ordinal %></div>
+              <% }); %>
+            </div>
+          </div>
+
+          <!-- current task card OR lights-out / completed panel -->
+          <% if (phase === 'frozen') { %>
+            <section style="padding:36px 36px 32px;border-bottom:1px solid var(--rule);background:radial-gradient(ellipse at 75% 0%, color-mix(in oklch, var(--cold), transparent 88%), transparent 60%), rgba(0,0,0,0.5);flex-shrink:0">
+              <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:18px">
+                <span class="dim uc" style="font-size:9.5px;letter-spacing:0.24em">// transmission</span>
+                <span class="cold" style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase">◆ ended</span>
+              </div>
+              <h1 style="font-family:'VT323',monospace;font-size:72px;line-height:1.0;margin:0;color:var(--chrome);letter-spacing:0.01em;text-shadow:0 0 8px color-mix(in oklch, var(--cold), transparent 60%)">
+                lights out.
+              </h1>
+              <div class="dim" style="font-size:13px;line-height:1.7;margin-top:14px;max-width:720px">
+                the gibson is dark. the leaderboard is frozen. submissions are no longer accepted.
+                the cohort holds where it stands · check the rail for the final standings.
+              </div>
+              <div style="margin-top:22px;display:flex;gap:8px">
+                <a class="btn cold" href="/board" style="text-decoration:none">[ view final board ▸ ]</a>
+                <a class="btn" href="/manual" style="text-decoration:none">[ re-read the manual ]</a>
+              </div>
+            </section>
+          <% } else if (completed || !trial) { %>
+            <section style="padding:36px 36px 32px;border-bottom:1px solid var(--rule);background:radial-gradient(ellipse at 75% 0%, color-mix(in oklch, var(--phosphor), transparent 86%), transparent 60%), rgba(0,0,0,0.5);flex-shrink:0">
+              <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:18px">
+                <span class="dim uc" style="font-size:9.5px;letter-spacing:0.24em">// transmission</span>
+                <span class="amber" style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase">◆ all <%= total %> cleared</span>
+              </div>
+              <h1 style="font-family:'VT323',monospace;font-size:72px;line-height:1.0;margin:0;color:var(--chrome);letter-spacing:0.01em;text-shadow:0 0 8px color-mix(in oklch, var(--phosphor), transparent 60%)">
+                the planet is hacked.
+              </h1>
+              <div class="dim" style="font-size:13px;line-height:1.7;margin-top:14px;max-width:720px">
+                you cleared all <%= total %> trials · welcome to the collective. the gibson stays hot until d-day plus seven · sit on the rail and watch the rest of the cohort come in.
+              </div>
+              <div style="margin-top:22px;display:flex;gap:8px">
+                <a class="btn" href="/board" style="text-decoration:none">[ view board ▸ ]</a>
+              </div>
+            </section>
+          <% } else { %>
+            <section style="padding:32px 36px 28px;border-bottom:1px solid var(--rule);background:radial-gradient(ellipse at 75% 0%, color-mix(in oklch, var(--phosphor), transparent 92%), transparent 60%), rgba(0,0,0,0.4);flex-shrink:0">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+                <div style="display:flex;align-items:baseline;gap:14px">
+                  <span class="dim uc" style="font-size:9.5px;letter-spacing:0.24em">focus · current trial</span>
+                  <span style="font-size:10px;letter-spacing:0.16em;padding:2px 8px;border:1px solid var(--phosphor-dim);color:var(--phosphor-dim);text-transform:uppercase">
+                    <%= trial.category %>
+                  </span>
+                  <span class="amber" style="font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase">
+                    ◆ <%= trial.points %> pts
+                  </span>
+                </div>
+                <div class="dim" style="font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase">
+                  /c/<%= trial.ordinal %>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:70px 1fr;gap:24px;align-items:baseline">
+                <div class="chrome glow-strong tabular" style="font-family:'VT323',monospace;font-size:92px;line-height:0.85;text-align:right;color:var(--chrome);text-shadow:0 0 12px var(--phosphor)">
+                  <%= pad2(trial.ordinal) %>
+                </div>
+                <div>
+                  <h1 style="font-family:'VT323',monospace;font-size:64px;line-height:1.0;margin:0;color:var(--chrome);letter-spacing:0.01em;text-shadow:0 0 8px color-mix(in oklch, var(--phosphor), transparent 60%)">
+                    <%= trial.title %>
+                  </h1>
+                  <div class="dim" style="font-size:13px;line-height:1.6;margin-top:10px;max-width:720px;letter-spacing:0.01em">
+                    study the brief · find the flag · submit the flag. order is enforced · only this stage advances you.
+                  </div>
+                </div>
+              </div>
+
+              <!-- meta strip -->
+              <div style="display:grid;grid-template-columns:repeat(4, 1fr);margin:24px 0 22px;border:1px solid var(--rule);background:rgba(0,0,0,0.4)">
+                <div style="padding:10px 14px;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">
+                  <span class="dim" style="font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase">time on stage</span>
+                  <span class="tabular <%= tosTone === 'warn' ? 'warn' : tosTone === 'amber' ? 'amber' : 'chrome' %>" style="font-size:16px;letter-spacing:0.02em"><%= fmtTos(tosMin) %></span>
+                </div>
+                <div style="padding:10px 14px;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">
+                  <span class="dim" style="font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase">attempts</span>
+                  <span class="tabular <%= attemptsTone === 'amber' ? 'amber' : 'chrome' %>" style="font-size:16px;letter-spacing:0.02em"><%= attemptsOnCurrent %></span>
+                </div>
+                <div style="padding:10px 14px;border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:2px">
+                  <span class="dim" style="font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase">cohort solved</span>
+                  <span class="tabular chrome" style="font-size:16px;letter-spacing:0.02em"><%= cohortSolved %> / <%= cohortTotal %></span>
+                </div>
+                <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px">
+                  <span class="dim" style="font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase">first blood</span>
+                  <span class="tabular cold" style="font-size:16px;letter-spacing:0.02em"><%= firstBloodAlias || '—' %></span>
+                </div>
+              </div>
+
+              <!-- submit row -->
+              <form id="submit-form" onsubmit="return submitFlag(event)" style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:stretch;margin:0">
+                <input type="hidden" name="challenge_id" value="<%= trial.id %>" />
+                <div style="display:flex;align-items:center;border:1px solid var(--phosphor-ghost);background:rgba(0,0,0,0.6)">
+                  <span class="dim" style="padding:0 12px;font-size:12px;letter-spacing:0.06em">flag&gt;</span>
+                  <input class="input" name="flag" placeholder="ZERODAY{...}" autocomplete="off" required
+                         style="border:none;flex:1;font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;font-size:14px" />
+                  <span class="ghost" style="padding:0 10px;font-size:10px;letter-spacing:0.18em;text-transform:uppercase">↵ submit</span>
+                </div>
+                <button class="btn solid" type="submit">[ submit flag ]</button>
+                <a class="btn cold" href="/c/<%= trial.ordinal %>" style="text-decoration:none">[ open brief ]</a>
+              </form>
+
+              <div id="submit-result" class="dim" style="margin-top:10px;font-size:11.5px;min-height:14px;letter-spacing:0.04em"></div>
+
+              <!-- recent attempts micro-log -->
+              <div style="margin-top:14px">
+                <div class="dim uc" style="font-size:9.5px;letter-spacing:0.22em;margin-bottom:6px">your last submissions on this trial</div>
+                <div class="atts" style="max-height:130px">
+                  <% if (recentAttempts.length === 0) { %>
+                    <div style="padding:6px 0;font-size:11.5px;color:var(--phosphor-faint)">no swings yet · the gibson is waiting.</div>
+                  <% } else { %>
+                    <% recentAttempts.forEach(function(a) { %>
+                      <div class="att-r <%= a.correct ? 'ok' : 'no' %>">
+                        <span class="dim"><%= relAge(a.created_at) %></span>
+                        <span><b><%= a.submitted %></b><% if (!a.correct) { %> <span class="ghost">— wrong content · keep going</span><% } %></span>
+                        <span class="<%= a.correct ? '' : 'warn' %>"><%= a.correct ? '✓' : '✗' %></span>
+                      </div>
+                    <% }); %>
+                  <% } %>
+                </div>
+              </div>
+            </section>
+          <% } %>
+
+          <!-- personal sub-feed: solves so far -->
+          <% if (currentOrdinal > 1 && !completed && phase !== 'frozen') { %>
+          <section style="flex-shrink:0;margin-top:auto">
+            <div class="section-head" style="position:sticky;top:0">
+              <span class="title">your wire · cleared</span>
+              <span class="meta"><span>private · admin can see, no one else</span></span>
+            </div>
+            <div style="padding:6px 0;max-height:220px;overflow:auto">
+              <% challenges.forEach(function(c) { if (c.ordinal < currentOrdinal && solved.has(c.id)) { %>
+                <div class="feed-row solve">
+                  <span class="t">trial <%= pad2(c.ordinal) %></span>
+                  <span class="k">S</span>
+                  <span class="body"><b><%= c.title %></b> · <span class="ghost"><%= c.category %></span></span>
+                  <span class="delta">+<%= c.points %></span>
+                </div>
+              <% } }); %>
+            </div>
+          </section>
+          <% } %>
+        </main>
+
+        <!-- RIGHT ASIDE ───────────────────────────────────── -->
+        <aside style="overflow:auto;display:flex;flex-direction:column">
+
+          <!-- leaderboard · live -->
+          <section style="border-bottom:1px solid var(--rule);flex-shrink:0">
+            <div class="section-head" style="position:sticky;top:0">
+              <span class="title">
+                <span class="led <%= phase === 'frozen' ? 'cold' : 'pulse' %>"></span>
+                leaderboard · <%= phase === 'frozen' ? 'final' : 'live' %>
+              </span>
+              <span class="meta"><span>your rank · <b>#<%= myRank || '—' %></b></span></span>
+            </div>
+            <div style="padding:4px 0">
+              <% board.forEach(function(p) {
+                var tier = p.rank === 1 ? 'gold' : p.rank === 2 ? 'silver' : p.rank === 3 ? 'bronze' : 'plain';
+                var rankColor = tier === 'gold' ? 'var(--amber)' : tier === 'silver' ? 'var(--chrome)' : tier === 'bronze' ? 'var(--cold)' : 'var(--phosphor-faint)';
+              %>
+                <div style="display:grid;grid-template-columns:32px 1fr auto auto;gap:12px;align-items:center;padding:6px 18px;border-bottom:1px solid var(--line-faint);background:<%= p.isMe ? 'color-mix(in oklch, var(--phosphor), transparent 90%)' : 'transparent' %>;<%= p.isMe ? 'box-shadow:inset 2px 0 0 var(--phosphor);' : '' %>font-size:12.5px;font-variant-numeric:tabular-nums">
+                  <span style="font-size:12px;color:<%= rankColor %>;letter-spacing:0.04em;<%= tier !== 'plain' ? 'text-shadow:0 0 4px currentColor;' : '' %>text-align:right"><%= pad2(p.rank) %></span>
+                  <span style="color:<%= p.isMe ? 'var(--chrome)' : 'var(--phosphor-dim)' %>;<%= p.isMe ? 'text-shadow:0 0 4px var(--phosphor);' : '' %>letter-spacing:0.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    <%= p.alias %><% if (p.isMe) { %><span class="dim" style="font-size:9px;letter-spacing:0.16em;margin-left:6px">← YOU</span><% } %>
+                  </span>
+                  <span class="dim" style="font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase">t<%= pad2(p.stage || 1) %></span>
+                  <span style="font-size:13.5px;font-weight:500;color:<%= p.isMe ? 'var(--chrome)' : 'var(--phosphor)' %>"><%= p.points %></span>
+                </div>
+              <% }); %>
+              <% if (board.length === 0) { %>
+                <div class="dim" style="padding:18px 22px;font-size:11.5px;text-align:center">no operators yet.</div>
+              <% } %>
+            </div>
+            <div style="padding:8px 18px;border-top:1px solid var(--rule);font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--phosphor-faint);display:flex;justify-content:space-between">
+              <span><%= phase === 'frozen' ? 'transmission ended' : 'updated on reload' %></span>
+              <span>tied ranks share position</span>
+            </div>
+          </section>
+
+          <!-- hints panel -->
+          <% if (phase !== 'frozen' && !completed && trial) { %>
+          <section style="flex-shrink:0">
+            <div class="section-head" style="position:sticky;top:0">
+              <span class="title">hints · trial <%= pad2(trial.ordinal) %></span>
+              <span class="meta"><span>operator-pushed · cost is yours</span></span>
+            </div>
+            <div style="padding:12px 18px;display:flex;flex-direction:column;gap:6px">
+              <% [
+                { id: 'L1', label: 'level 1 · nudge',   cost: 2,  txt: 'point at a tool · you remember it.' },
+                { id: 'L2', label: 'level 2 · strong',  cost: 5,  txt: 'open the door · you walk through it.' },
+                { id: 'L3', label: 'level 3 · spoiler', cost: 10, txt: 'show the trick · the gibson disapproves.' }
+              ].forEach(function(o) { %>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 14px;border:1px solid var(--phosphor-ghost);background:rgba(0,0,0,0.4)">
+                  <div>
+                    <div style="font-size:11.5px;letter-spacing:0.06em;text-transform:uppercase">◆ <%= o.label %></div>
+                    <div class="dim" style="font-size:10.5px;letter-spacing:0.04em;margin-top:2px"><%= o.txt %></div>
+                  </div>
+                  <span class="warn" style="font-size:12px;letter-spacing:0.04em">−<%= o.cost %></span>
+                </div>
+              <% }); %>
+              <div class="dim" style="margin-top:6px;font-size:10.5px;line-height:1.6;letter-spacing:0.02em;border-top:1px solid var(--line-faint);padding-top:8px">
+                stuck for 2h+ on stage · auto-drip queues. an operator will push, you can refuse.
+                <% if (hintsOnCurrent > 0) { %><br/><span class="amber">you've taken <%= hintsOnCurrent %> hint<%= hintsOnCurrent === 1 ? '' : 's' %> on this trial.</span><% } %>
+              </div>
+            </div>
+          </section>
+          <% } else if (phase === 'frozen') { %>
+          <section style="flex-shrink:0">
+            <div class="section-head" style="position:sticky;top:0">
+              <span class="title">// dossier</span>
+              <span class="meta"><span>archive</span></span>
+            </div>
+            <div class="kv" style="margin:12px 18px">
+              <div class="k">handle</div>      <div class="v"><%= alias %></div>
+              <div class="k">slot</div>        <div class="v">#<%= slotNumber %></div>
+              <div class="k">final stage</div> <div class="v"><%= currentOrdinal %> / <%= total %></div>
+              <div class="k">final pts</div>   <div class="v"><%= myPoints %></div>
+              <div class="k">rank</div>        <div class="v">#<%= myRank || '—' %> of <%= board.length %></div>
+              <div class="k">hints used</div>  <div class="v"><%= myHintsTotal %></div>
+            </div>
+          </section>
+          <% } else if (completed) { %>
+          <section style="flex-shrink:0">
+            <div class="section-head" style="position:sticky;top:0">
+              <span class="title">// dossier</span>
+              <span class="meta"><span>cleared</span></span>
+            </div>
+            <div class="kv" style="margin:12px 18px">
+              <div class="k">handle</div>      <div class="v"><%= alias %></div>
+              <div class="k">slot</div>        <div class="v">#<%= slotNumber %></div>
+              <div class="k">trials</div>      <div class="v"><%= total %> / <%= total %></div>
+              <div class="k">total pts</div>   <div class="v"><%= myPoints %></div>
+              <div class="k">rank</div>        <div class="v">#<%= myRank || '—' %> of <%= board.length %></div>
+              <div class="k">hints used</div>  <div class="v"><%= myHintsTotal %></div>
+            </div>
+          </section>
+          <% } %>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Wall clock + countdown — runs at 1Hz. Keeps opsbar feeling alive.
+  (function () {
+    var clockEl = document.querySelector('[data-wall-clock]');
+    var cdEl = document.querySelector('[data-cd-display]');
+    var target = cdEl && cdEl.dataset.cdTarget ? new Date(cdEl.dataset.cdTarget).getTime() : 0;
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function tick() {
+      var now = new Date();
+      if (clockEl) {
+        clockEl.textContent = pad2(now.getUTCHours()) + ':' + pad2(now.getUTCMinutes()) + ':' + pad2(now.getUTCSeconds()) + ' utc';
+      }
+      if (cdEl && target) {
+        var ms = target - now.getTime();
+        if (ms <= 0) {
+          cdEl.textContent = 'transmission ended';
+        } else {
+          var t = Math.floor(ms / 1000);
+          var d = Math.floor(t / 86400);
+          var h = Math.floor((t % 86400) / 3600);
+          var m = Math.floor((t % 3600) / 60);
+          cdEl.textContent = 't-' + d + 'd ' + pad2(h) + 'h ' + pad2(m) + 'm';
+        }
+      }
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+
+  // Flag submit — same shape as before but routed to the focus-card form.
+  async function submitFlag(e) {
+    e.preventDefault();
+    var f = e.target;
+    var out = document.getElementById('submit-result');
+    var flag = f.flag.value.trim();
+    if (!flag) { out.textContent = '✗ empty submission · paste a flag'; out.className = 'warn'; return false; }
+    if (!/^ZERODAY\{.+\}$/.test(flag)) {
+      out.textContent = '⚠ malformed flag · expected ZERODAY{...}';
+      out.className = 'amber';
+      return false;
+    }
+    out.textContent = '· transmitting ·';
+    out.className = 'dim';
+    try {
+      var r = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge_id: f.challenge_id.value, flag: flag })
+      });
+      var data = await r.json();
+      if (data.correct) {
+        out.textContent = data.completed ? '✓ THE PLANET IS HACKED.' : '✓ stage cleared · advancing.';
+        out.className = 'chrome glow';
+        setTimeout(function () { location.reload(); }, 800);
+      } else if (data.cheat && data.cheat.detected) {
+        // Anti-cheat takeover — punt to /frozen which renders the full
+        // klaxon experience.
+        location.href = '/frozen';
+      } else if (data.error) {
+        out.textContent = '✗ ' + data.error;
+        out.className = 'warn';
+      } else {
+        out.textContent = '✗ submission rejected · keep going';
+        out.className = 'warn';
+      }
+    } catch (err) {
+      out.textContent = '✗ network error · try again';
+      out.className = 'warn';
+    }
+    return false;
+  }
+</script>
+</body>
+</html>

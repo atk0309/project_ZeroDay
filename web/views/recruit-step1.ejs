@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeroday // recruit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/recruit-flow.css">
+</head>
+<body class="recruit-flow">
+<%
+  const introLines = [
+    '<span class="ghost">&gt;</span> channel open.',
+    '<span class="ghost">&gt;</span> you\'re early. everyone is early, the first time.',
+    '',
+    '<span class="chrome">they said you were curious. that\'s a dangerous thing to be.</span>',
+    '<span class="dim">— but it is, on balance, the useful kind of dangerous. —</span>',
+    '',
+    '<span class="chrome">this isn\'t a game. well — it is. but you won\'t know the difference by the end.</span>',
+    '',
+    '<span class="dim">a name is required. not yours. one you\'ll wear inside.</span>'
+  ];
+%>
+<div class="crt-stage crt-flicker">
+  <div class="screen centered">
+    <div class="stack-lg" style="width: 680px; max-width: 100%;">
+
+      <div class="row between term-xs dim">
+        <span>CH://secure</span>
+        <span class="glitch">recruit.example.com // transmission 001</span>
+        <span>OPERATOR</span>
+      </div>
+
+      <div class="term" style="min-height: 220px;">
+        <div class="typed-block"
+             data-speed="20"
+             data-line-delay="180"
+             data-lines="<%= JSON.stringify(introLines) %>"></div>
+      </div>
+
+      <form method="post" action="/recruit" data-gate-form class="stack" style="gap: 28px;">
+        <div class="term-input-line">
+          <span class="prompt glow">&gt; identify yourself:</span>
+          <input class="term-input glow"
+                 name="alias"
+                 placeholder="handle / alias"
+                 minlength="3" maxlength="20"
+                 pattern="[A-Za-z0-9_.\-]{3,20}"
+                 required autofocus>
+        </div>
+
+        <div class="term-input-line">
+          <span class="prompt glow">&gt; where we reach you when it matters:</span>
+          <input class="term-input glow"
+                 name="email"
+                 type="email"
+                 placeholder="you@somewhere.net"
+                 required>
+        </div>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+          <div class="term-sm warn">&gt; <%= message %></div>
+        <% } %>
+
+        <div class="row between" style="margin-top: 12px;">
+          <div class="term-sm dim" style="max-width: 420px; line-height: 1.6;">
+            nothing illegal. no real systems harmed. just puzzles.<br>
+            you can walk away. most won't.
+          </div>
+          <button type="submit" class="term-btn glow">[ jack in ]</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+<script src="/static/recruit-flow.js"></script>
+</body>
+</html>

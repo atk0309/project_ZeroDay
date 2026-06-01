@@ -1,0 +1,181 @@
+<%
+  // Cheater takeover. Adapted from Claude Design's CheaterScreen
+  // (project-zeroday/screens-violations.jsx). Renders for any frozen player;
+  // copy and visual treatment branch on `reason`.
+  //
+  // Locals:
+  //   alias       — frozen player's handle
+  //   reason      — 'cheat_consumer' | 'cheat_supplier_strike2' | 'admin_ban'
+  //   detectedAt  — ISO timestamp of the freeze (may be null)
+  //   evidence    — { detectedAt, submittedFlag, challengeOrdinal,
+  //                   challengeTitle, strikeNumber, consumerIp, consumerUa,
+  //                   supplierAlias } | null   (consumer-side evidence only)
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  var detected = detectedAt ? new Date(detectedAt) : null;
+  var hhmmss = detected ? pad2(detected.getUTCHours()) + ':' + pad2(detected.getUTCMinutes()) + ':' + pad2(detected.getUTCSeconds()) : '—';
+  var ymd = detected ? detected.toISOString().slice(0, 10) : '—';
+  var refStamp = hhmmss.replace(/:/g, '');
+
+  var ev = (typeof evidence !== 'undefined' && evidence) ? evidence : null;
+  var flag = ev && ev.submittedFlag ? ev.submittedFlag : '—';
+  var supplier = ev && ev.supplierAlias ? ev.supplierAlias : '—';
+  var stage = ev && ev.challengeOrdinal ? String(ev.challengeOrdinal).padStart(2, '0') : '—';
+  var stageName = ev && ev.challengeTitle ? ev.challengeTitle.toUpperCase() : '—';
+  var ip = (ev && ev.consumerIp) || '—';
+  var ua = (ev && ev.consumerUa) || '—';
+  var submittedAt = ev && ev.detectedAt ? ev.detectedAt.replace('T', ' ').slice(11, 19) : hhmmss;
+
+  // Strike count: consumer freezes on strike 1; supplier freezes on strike 2.
+  // Both render as "out" — 2 of 2 hit.
+  var isConsumer = reason === 'cheat_consumer';
+  var isSupplierStrike2 = reason === 'cheat_supplier_strike2';
+  var isCheatRelated = isConsumer || isSupplierStrike2;
+  var ribbon = isConsumer
+    ? '✕ STOLEN FLAG DETECTED ✕ ACCOUNT FROZEN ✕ YOU CARRIED A KEY THAT WAS NOT YOURS ✕ '
+    : isSupplierStrike2
+      ? '✕ STRIKE 2 OF 2 ✕ ACCOUNT FROZEN ✕ SECOND OPERATIVE WAS CAUGHT WITH YOUR KEY ✕ '
+      : '✕ ACCESS REVOKED ✕ OPERATOR REVIEW REQUIRED ✕ ';
+  var ribbonText = '';
+  for (var i = 0; i < 8; i++) ribbonText += ribbon;
+%>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>session terminated</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/violation.css">
+</head>
+<body class="violation-root" style="margin:0;background:#0a0000;">
+  <% if (isCheatRelated) { %>
+    <div class="cheater-stage">
+      <div class="vignette"></div>
+
+      <div class="klax tl"><span class="glyph">&#9888;</span></div>
+      <div class="klax tr"><span class="glyph">&#9888;</span></div>
+      <div class="klax bl"><span class="glyph">&#9888;</span></div>
+      <div class="klax br"><span class="glyph">&#9888;</span></div>
+
+      <div class="marquee top">
+        <div class="track">
+          <span><%= ribbonText %></span>
+          <span><%= ribbonText %></span>
+        </div>
+      </div>
+      <div class="marquee bottom">
+        <div class="track">
+          <span><%= ribbonText %></span>
+          <span><%= ribbonText %></span>
+        </div>
+      </div>
+
+      <div class="core">
+        <div class="preamble">
+          <div class="stamp">PROTOCOL · ANTI-COLLUSION · TRIPWIRE 0xC0DE</div>
+          <% if (isConsumer && ev) { %>
+            <div class="vict">flag <b style="color:#fff"><%= flag %></b></div>
+            <div class="vict">belongs to operative <b style="color:#fff"><%= supplier %></b> &nbsp;·&nbsp; not you, <b style="color:#fff"><%= alias %></b></div>
+          <% } else if (isSupplierStrike2) { %>
+            <div class="vict">your handle has surfaced in another operative's submission</div>
+            <div class="vict">for the <b style="color:#fff">second time</b>. the collective stops asking quietly.</div>
+          <% } else { %>
+            <div class="vict">operative <b style="color:#fff"><%= alias %></b></div>
+            <div class="vict">access suspended by ops review</div>
+          <% } %>
+        </div>
+
+        <h1 class="verdict">
+          <% if (isConsumer) { %>STOLEN<% } else if (isSupplierStrike2) { %>SUPPLIED<% } else { %>SUSPENDED<% } %>
+          <span class="sub">— YOU ARE OUT —</span>
+        </h1>
+
+        <% if (isConsumer && ev) { %>
+          <div style="display:flex; flex-direction:column; align-items:center; align-self:start;">
+            <div class="evidence">
+              <div class="cell">
+                <span class="l">submitted</span>
+                <span class="v flag"><%= flag %></span>
+                <span style="font-size:10px; letter-spacing:0.16em">stage <%= stage %> · <%= stageName %></span>
+              </div>
+              <div class="cell">
+                <span class="l">authored by</span>
+                <span class="v"><%= supplier %></span>
+                <span style="font-size:10px">solved · earlier this session</span>
+              </div>
+              <div class="cell">
+                <span class="l">submitted by</span>
+                <span class="v"><%= alias %></span>
+                <span style="font-size:10px"><%= ip %> · <%= submittedAt %></span>
+              </div>
+            </div>
+
+            <div class="strike-row">
+              <span class="strike-label">strikes →</span>
+              <div class="strike hit">&#10005;</div>
+              <div class="strike hit">&#10005;</div>
+              <span class="strike-label">OUT</span>
+            </div>
+          </div>
+        <% } else { %>
+          <div style="display:flex; flex-direction:column; align-items:center; align-self:start;">
+            <div class="strike-row">
+              <span class="strike-label">strikes →</span>
+              <div class="strike hit">&#10005;</div>
+              <div class="strike hit">&#10005;</div>
+              <span class="strike-label">OUT</span>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="ip-block">
+        logged · <b><%= ip %></b><br>
+        agent · <b><%= ua %></b><br>
+        clock · <b><%= hhmmss %></b><br>
+        ref · <b>0xC0DE-<%= refStamp %></b>
+      </div>
+
+      <pre class="ascii-skull">     .---.
+    /     \
+    |() ()|
+    \  ^  /
+     |||||
+     |||||</pre>
+
+      <div class="override">
+        <span class="lbl">OPERATOR ONLY ▸</span>
+        <form method="post" action="/auth/logout">
+          <button type="submit" class="btn-ovr ghost">acknowledge &amp; sign out</button>
+        </form>
+        <span style="font-size:10px;letter-spacing:0.18em;color:#ffb0b0">admin override · ops console</span>
+      </div>
+    </div>
+  <% } else { %>
+    <%# admin_ban / generic frozen reason — keep the same shell, softer copy %>
+    <div class="cheater-stage" style="animation:none;">
+      <div class="vignette"></div>
+      <div class="klax tl"><span class="glyph">&#9888;</span></div>
+      <div class="klax tr"><span class="glyph">&#9888;</span></div>
+      <div class="klax bl"><span class="glyph">&#9888;</span></div>
+      <div class="klax br"><span class="glyph">&#9888;</span></div>
+      <div class="marquee top"><div class="track"><span><%= ribbonText %></span><span><%= ribbonText %></span></div></div>
+      <div class="marquee bottom"><div class="track"><span><%= ribbonText %></span><span><%= ribbonText %></span></div></div>
+      <div class="core">
+        <div class="preamble">
+          <div class="stamp">ACCESS SUSPENDED</div>
+          <div class="vict">operative <b style="color:#fff"><%= alias %></b> · session locked pending review</div>
+        </div>
+        <h1 class="verdict">SUSPENDED<span class="sub">— OPS REVIEW —</span></h1>
+      </div>
+      <div class="override">
+        <form method="post" action="/auth/logout">
+          <button type="submit" class="btn-ovr ghost">sign out</button>
+        </form>
+      </div>
+    </div>
+  <% } %>
+</body>
+</html>

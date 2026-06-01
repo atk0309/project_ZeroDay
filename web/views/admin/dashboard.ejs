@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<%- include('_head', { title: 'operator console — zeroday' }) %>
+</head>
+<body>
+<%
+  function fmtClock(d) {
+    if (!d) return '—';
+    var dt = new Date(d);
+    if (isNaN(dt.getTime())) return '—';
+    return dt.toISOString().slice(0,16).replace('T',' ');
+  }
+  function humanDelta(targetIso) {
+    if (!targetIso) return '—';
+    var ms = new Date(targetIso).getTime() - Date.now();
+    if (ms <= 0) return '—';
+    var d = Math.floor(ms / 86400000);
+    var h = Math.floor((ms / 3600000) % 24);
+    var m = Math.floor((ms / 60000) % 60);
+    if (d) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h) return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+  var phaseTone = {
+    uninitialized: 'uninit', prelaunch: 'prelaunch', live: 'live', frozen: 'frozen'
+  }[phase] || 'uninit';
+  var stuckCount = stuck ? stuck.length : 0;
+  var hintQueueCount = stuckCount;
+  var totalChallenges = total || 19;
+  var variation = (typeof variation !== 'undefined' && variation === 'narrative') ? 'narrative' : 'dense';
+  var visiblePlayers = (typeof visiblePlayers !== 'undefined' && visiblePlayers) ? visiblePlayers : players;
+  var q = (typeof q !== 'undefined' && q) ? q : '';
+  var stuckOnly = (typeof stuckOnly !== 'undefined' && stuckOnly) ? true : false;
+  var sparkSubmits = (typeof sparkSubmits !== 'undefined' && sparkSubmits) ? sparkSubmits : [];
+  var sparkActive  = (typeof sparkActive  !== 'undefined' && sparkActive)  ? sparkActive  : [];
+  var funnel       = (typeof funnel       !== 'undefined' && funnel)       ? funnel       : [];
+  var maxFunnel = 1; funnel.forEach(function(n){ if (n > maxFunnel) maxFunnel = n; });
+  var maxSpark = 1;
+  sparkSubmits.forEach(function(n){ if (n > maxSpark) maxSpark = n; });
+  sparkActive.forEach(function(n){ if (n > maxSpark) maxSpark = n; });
+  var lastEventId = 0;
+  events.forEach(function(e){ if (e.id > lastEventId) lastEventId = e.id; });
+  var activeUnder1h = players.filter(function(p) {
+    if (!p.last_advance_at) return false;
+    var ms = Date.now() - new Date(p.last_advance_at).getTime();
+    return ms < 3600000;
+  }).length;
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+    <%- include('_topbar', { phase: phase, launchAt: launchAt, endAt: endAt, mailConfigured: mailConfigured, adminEmail: adminEmail, variation: variation }) %>
+
+    <div class="app-body">
+      <%- include('_sidenav', { active: 'overview', playersCount: players.length, stuckCount: stuckCount, queueCount: hintQueueCount, totalChallenges: totalChallenges, phase: phase }) %>
+
+      <div class="workspace">
+        <!-- KPI strip with sparklines -->
+        <div class="section">
+          <div class="phase-strip" style="grid-template-columns:repeat(5,1fr)">
+            <div>
+              <div class="kpi-l">recruits</div>
+              <div class="kpi-v"><%= players.length %><span class="unit">total</span></div>
+              <div class="dim" style="font-size:10px;margin-top:4px;letter-spacing:0.06em">verified · <span class="chrome"><%= players.filter(function(p){return p.verified_at}).length %></span></div>
+            </div>
+            <div>
+              <div class="kpi-l">active &lt; 1h</div>
+              <div class="kpi-v"><%= activeUnder1h %></div>
+              <div class="kpi-spark" aria-hidden="true">
+                <% sparkActive.forEach(function(n, i) { var hot = i >= 8; var px = Math.max(2, Math.round((n / maxSpark) * 22)); %>
+                  <span class="bar <%= hot && n > 0 ? 'hot' : '' %>" style="height:<%= px %>px"></span>
+                <% }); %>
+              </div>
+            </div>
+            <div>
+              <div class="kpi-l">stuck &gt; 20h</div>
+              <div class="kpi-v" style="<%= stuckCount > 0 ? 'color:var(--warn);text-shadow:0 0 6px var(--warn)' : '' %>">
+                <%= stuckCount %>
+              </div>
+              <div class="dim" style="font-size:10px;margin-top:4px;letter-spacing:0.06em"><%= stuckCount > 0 ? 'auto-drip will queue at 09:00' : 'all moving' %></div>
+            </div>
+            <div>
+              <div class="kpi-l">submits / hr</div>
+              <% var submitsLastHr = sparkSubmits.length ? sparkSubmits[sparkSubmits.length - 1] : 0; %>
+              <div class="kpi-v"><%= submitsLastHr %></div>
+              <div class="kpi-spark" aria-hidden="true">
+                <% sparkSubmits.forEach(function(n, i) { var hot = i >= 7; var px = Math.max(2, Math.round((n / maxSpark) * 22)); %>
+                  <span class="bar <%= hot && n > 0 ? 'hot' : '' %>" style="height:<%= px %>px"></span>
+                <% }); %>
+              </div>
+            </div>
+            <div>
+              <div class="kpi-l">furthest reached</div>
+              <%
+                var maxOrd = 0;
+                players.forEach(function(p) { if (p.current_ordinal > maxOrd) maxOrd = p.current_ordinal; });
+              %>
+              <div class="kpi-v"><%= maxOrd %><span class="unit">/<%= totalChallenges %></span></div>
+              <div class="dim" style="font-size:10px;margin-top:4px;letter-spacing:0.06em">trial floor</div>
+            </div>
+          </div>
+        </div>
+
+        <% if (variation === 'dense') { %>
+        <div class="split">
+          <!-- Recently active · top 5. Full roster lives on /admin/players. -->
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led"></span>recently active · top 5</span>
+                <span class="meta">
+                  <span><b><%= Math.min(5, visiblePlayers.length) %></b>/<%= players.length %> shown</span>
+                  <span>full roster · <a href="/admin/players" style="color:var(--phosphor)">/admin/players ↗</a></span>
+                </span>
+              </div>
+              <% if (q || stuckOnly) { %>
+                <form method="get" action="/admin" style="padding:10px 22px;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:center">
+                  <input class="input" name="q" value="<%= q %>" placeholder="alias or email" style="max-width:260px;font-size:11.5px;padding:5px 10px" />
+                  <button type="submit" name="stuck" value="<%= stuckOnly ? '' : '1' %>" class="btn sm <%= stuckOnly ? 'warn solid' : '' %>">
+                    [ <%= stuckOnly ? '✓ stuck only' : 'stuck only' %> ]
+                  </button>
+                  <a href="/admin" class="btn sm">[ clear ]</a>
+                  <span class="dim" style="font-size:10px;letter-spacing:0.1em;margin-left:auto">filtering · click row · open drawer</span>
+                </form>
+              <% } %>
+              <div style="overflow:auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="width:24px"></th>
+                      <th>alias</th>
+                      <th>stage</th>
+                      <th>progress</th>
+                      <th class="num">solves</th>
+                      <th class="num">hints</th>
+                      <th>last advance</th>
+                      <th style="width:120px"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% visiblePlayers.slice(0, 5).forEach(function(p) {
+                      var stage = p.current_ordinal || 1;
+                      var hoursStuck = 0;
+                      if (p.last_advance_at) {
+                        hoursStuck = (Date.now() - new Date(p.last_advance_at).getTime()) / 3600000;
+                      }
+                      var tosClass = hoursStuck > 20 ? 'hot' : hoursStuck > 6 ? 'warm' : '';
+                      var rowClass = hoursStuck > 20 ? 'stuck' : '';
+                    %>
+                    <tr class="<%= rowClass %>" data-player-id="<%= p.id %>" data-player-alias="<%= p.alias %>">
+                      <td><span class="tos <%= tosClass %>" title="<%= Math.round(hoursStuck * 10) / 10 %>h on stage"></span></td>
+                      <td class="alias"><%= p.alias %><% if (p.admin_skips > 0) { %> <span class="warn" title="admin-skipped">⚠</span><% } %></td>
+                      <td>
+                        <span class="chrome"><%= String(stage).padStart(2,'0') %></span><span class="dim">/<%= totalChallenges %></span>
+                      </td>
+                      <td>
+                        <span class="stage-bar">
+                          <% for (var i = 1; i <= totalChallenges; i++) { %>
+                            <i class="<%= i < stage ? 'done' : (i === stage ? 'now' : '') %>"></i>
+                          <% } %>
+                        </span>
+                      </td>
+                      <td class="num dim"><%= p.solves || 0 %></td>
+                      <td class="num dim"><%= p.hints || 0 %></td>
+                      <td class="dim"><%= p.last_advance_at ? new Date(p.last_advance_at).toISOString().slice(11,16) : '—' %></td>
+                      <td class="action" data-no-drawer="1">
+                        <button type="button" class="btn sm" data-open-drawer="<%= p.id %>">[ open ]</button>
+                      </td>
+                    </tr>
+                    <% }); %>
+                    <% if (visiblePlayers.length === 0) { %>
+                      <tr><td colspan="8" style="text-align:center;color:var(--phosphor-faint);padding:24px">no operators match the filter</td></tr>
+                    <% } %>
+                  </tbody>
+                </table>
+                <% if (visiblePlayers.length > 5) { %>
+                  <div style="padding:10px 22px;border-top:1px solid var(--rule);text-align:center">
+                    <a href="/admin/players" class="btn sm">[ open full roster · <%= visiblePlayers.length %> operators ↗ ]</a>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side rail: feed + stuck queue + global ops -->
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led pulse"></span>live feed</span>
+                <span class="meta"><span>tail · last <b><%= events.length %></b> · auto-refresh 5s</span></span>
+              </div>
+              <div class="feed-list" data-events-list data-last-id="<%= lastEventId %>" style="max-height:360px;overflow:auto">
+                <% events.forEach(function(e, i) {
+                  var kind = e.kind || 'attempt';
+                  var letter = kind[0] ? kind[0].toUpperCase() : '?';
+                %>
+                  <div class="feed-row <%= kind %><%= i === 0 ? ' new' : '' %>" data-event-id="<%= e.id %>">
+                    <span class="t"><%= e.created_at ? new Date(e.created_at).toISOString().slice(11,19) : '' %></span>
+                    <span class="k"><%= letter %></span>
+                    <span class="body"><b><%= e.alias || '—' %></b> <%= e.payload || kind %></span>
+                    <span class="delta"></span>
+                  </div>
+                <% }); %>
+                <% if (events.length === 0) { %>
+                  <div style="padding:18px 22px;color:var(--phosphor-faint);font-size:11.5px">no events yet</div>
+                <% } %>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led warn"></span>stuck · <%= stuckCount %></span>
+                <span class="meta"><span>auto-drip cron · 09:00 daily</span></span>
+              </div>
+              <div style="padding:12px 16px;display:flex;flex-direction:column;gap:1px">
+                <% stuck.forEach(function(s) {
+                  var ch = challenges.find(function(c){ return c.ordinal === s.current_ordinal; });
+                  var hot = s.hours_stuck > 23;
+                %>
+                  <div class="queue-card <%= hot ? 'elapsed-hot' : 'elapsed-warm' %>">
+                    <div>
+                      <div class="who"><%= s.alias %> <span class="dim" style="font-size:11px;margin-left:6px">· trial <%= String(s.current_ordinal).padStart(2,'0') %><% if (ch) { %> · <%= ch.title %><% } %></span></div>
+                      <div class="why">↳ stuck <%= Math.round(s.hours_stuck) %>h · last hint L<%= s.last_hint || 0 %></div>
+                    </div>
+                    <div class="stage-tag">level <%= (s.last_hint || 0) + 1 %></div>
+                    <div class="actions">
+                      <% if (ch) { %>
+                        <form method="post" action="/admin/hint" style="display:inline;margin:0">
+                          <input type="hidden" name="user_id" value="<%= s.id %>">
+                          <input type="hidden" name="challenge_id" value="<%= ch.id %>">
+                          <button class="btn sm" type="submit" name="level" value="<%= Math.min((s.last_hint || 0) + 1, 3) %>">[ approve &amp; send ]</button>
+                          <button class="btn sm" type="submit" name="level" value="1">[ L1 ]</button>
+                          <button class="btn sm" type="submit" name="level" value="2">[ L2 ]</button>
+                          <button class="btn sm" type="submit" name="level" value="3">[ L3 ]</button>
+                        </form>
+                      <% } %>
+                    </div>
+                  </div>
+                <% }); %>
+                <% if (stuckCount === 0) { %>
+                  <div class="dim" style="padding:12px 6px;font-size:12.5px">everyone is moving. ✓ nothing to attend to.</div>
+                <% } %>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <span class="title">global ops</span>
+              </div>
+              <div style="padding:14px 22px;display:flex;flex-wrap:wrap;gap:8px">
+                <a class="btn sm" href="/admin/setup">[ edit settings ]</a>
+                <a class="btn sm cold" href="/board">[ leaderboard ]</a>
+                <form method="post" action="/admin/logout" style="display:inline;margin:0">
+                  <button class="btn sm warn" type="submit">[ end session ]</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        <% } else { %>
+        <%# ── NARRATIVE VARIANT ───────────────────────────────────────── %>
+        <%
+          var sortedPlayers = players.slice().sort(function(a,b){
+            var sa = a.current_ordinal || 0, sb = b.current_ordinal || 0;
+            if (sa !== sb) return sb - sa;
+            return (a.solves||0) > (b.solves||0) ? -1 : 1;
+          });
+          var topThree = sortedPlayers.slice(0, 3);
+          var newRecruits = players.filter(function(p){ return (p.current_ordinal||1) === 1; });
+          var inMotion = players.filter(function(p){ return (p.current_ordinal||1) > 1; });
+          var maxStage = 0; players.forEach(function(p){ if ((p.current_ordinal||0) > maxStage) maxStage = p.current_ordinal||0; });
+          var leader = sortedPlayers[0];
+        %>
+        <div class="phase-strip">
+          <div class="countdown">
+            <div class="kpi-l warn">⌁ <%= phase === 'frozen' ? 'gibson · cold' : phase === 'live' ? 'gibson · hot · cold-in' : 'launch in' %></div>
+            <div class="cd-row">
+              <%
+                var target = phase === 'frozen' ? null : (phase === 'live' ? endAt : launchAt);
+                var ms = target ? (new Date(target).getTime() - Date.now()) : 0;
+                if (ms < 0) ms = 0;
+                var dd = Math.floor(ms / 86400000), hh = Math.floor((ms/3600000)%24), mm = Math.floor((ms/60000)%60), ss = Math.floor((ms/1000)%60);
+                function pad2(n){ return String(n).padStart(2,'0'); }
+              %>
+              <span class="cd-num"><%= pad2(dd) %></span><span class="cd-sep">·</span>
+              <span class="cd-num"><%= pad2(hh) %></span><span class="cd-sep">·</span>
+              <span class="cd-num"><%= pad2(mm) %></span><span class="cd-sep">·</span>
+              <span class="cd-num"><%= pad2(ss) %></span>
+              <div class="cd-l">d · h · m · s</div>
+            </div>
+          </div>
+          <div>
+            <div class="kpi-l">cohort</div>
+            <div class="kpi-v"><%= players.length %><span class="unit">operators</span></div>
+            <div class="kpi-row">
+              <div><div class="kpi-v" style="font-size:18px"><%= newRecruits.length %></div><div class="kpi-l">on trial 1</div></div>
+              <div><div class="kpi-v" style="font-size:18px;color:var(--phosphor)"><%= inMotion.length %></div><div class="kpi-l">in motion</div></div>
+              <div><div class="kpi-v" style="font-size:18px;color:var(--warn)"><%= stuckCount %></div><div class="kpi-l">stuck</div></div>
+            </div>
+          </div>
+          <div>
+            <div class="kpi-l">furthest reached</div>
+            <div class="kpi-v">trial <%= maxStage %><span class="unit">/<%= totalChallenges %></span></div>
+            <% if (leader) { %>
+              <div class="dim" style="font-size:11.5px;line-height:1.6;margin-top:8px;letter-spacing:0.02em">
+                <b class="chrome"><%= leader.alias %></b><br/>last advance · <%= leader.last_advance_at ? new Date(leader.last_advance_at).toISOString().slice(11,16) : '—' %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="split">
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title">⌁ top of pack</span>
+                <span class="meta"><span>furthest along · click for detail</span></span>
+              </div>
+              <div style="padding:14px 22px;display:flex;flex-direction:column;gap:14px">
+                <% topThree.forEach(function(p, i) { var stage = p.current_ordinal || 1; %>
+                  <div data-open-drawer="<%= p.id %>" style="cursor:pointer;padding:12px 16px;border:1px solid var(--rule);background:rgba(0,0,0,0.4);display:grid;grid-template-columns:40px 1fr auto;gap:16px;align-items:center">
+                    <div class="tabular" style="font-size:24px;font-weight:500;color:<%= i === 0 ? 'var(--phosphor)' : 'var(--phosphor-dim)' %>;<%= i === 0 ? 'text-shadow:0 0 6px var(--phosphor)' : '' %>"><%= String(i+1).padStart(2,'0') %></div>
+                    <div>
+                      <div class="chrome" style="font-size:14px"><%= p.alias %></div>
+                      <div class="dim" style="font-size:10.5px;letter-spacing:0.06em;margin-top:2px">stage <%= stage %>/<%= totalChallenges %> · <%= p.solves || 0 %> solves · last <%= p.last_advance_at ? new Date(p.last_advance_at).toISOString().slice(11,16) : '—' %></div>
+                      <div class="stage-bar" style="width:100%;margin-top:8px">
+                        <% for (var j = 1; j <= totalChallenges; j++) { %><i class="<%= j < stage ? 'done' : (j === stage ? 'now' : '') %>"></i><% } %>
+                      </div>
+                    </div>
+                    <button type="button" class="btn sm" data-open-drawer="<%= p.id %>">[ open ]</button>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led warn pulse"></span>needs attention · <%= stuckCount %></span>
+                <span class="meta"><span>stuck &gt; 20h or auto-flagged</span></span>
+              </div>
+              <div style="padding:14px 22px;display:flex;flex-direction:column;gap:12px">
+                <% stuck.forEach(function(s) { var ch = challenges.find(function(c){return c.ordinal === s.current_ordinal}); %>
+                  <div style="padding:12px 16px;border:1px solid color-mix(in oklch, var(--warn), transparent 50%);background:color-mix(in oklch, var(--warn), transparent 95%);display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline">
+                      <div><span class="chrome" style="font-size:14px"><%= s.alias %></span><span class="dim" style="font-size:11px;margin-left:10px">· <%= s.email %></span></div>
+                      <span class="warn" style="font-size:11px;letter-spacing:0.1em"><%= Math.round(s.hours_stuck) %>h on stage <%= s.current_ordinal %></span>
+                    </div>
+                    <div class="dim" style="font-size:11.5px;line-height:1.6">↳ trial <%= s.current_ordinal %><% if (ch) { %> · <span class="chrome"><%= ch.title %></span><% } %> · <%= s.attempts_on_stage || 0 %> attempts · <%= s.last_hint || 0 %> hints used</div>
+                    <div style="display:flex;gap:6px;margin-top:4px">
+                      <button type="button" class="btn sm" data-open-drawer="<%= s.id %>">[ open ]</button>
+                      <% if (ch) { %>
+                        <div class="hint-dd">
+                          <button type="button" class="btn sm amber" data-hint-toggle="s<%= s.id %>">[ send hint ▾ ]</button>
+                          <div class="hint-menu" data-hint-menu="s<%= s.id %>" style="display:none">
+                            <% hintLevels.forEach(function(lvl) { %>
+                              <form method="post" action="/admin/hint" style="margin:0">
+                                <input type="hidden" name="user_id" value="<%= s.id %>">
+                                <input type="hidden" name="challenge_id" value="<%= ch.id %>">
+                                <input type="hidden" name="level" value="<%= lvl %>">
+                                <button type="submit" class="hm-item" style="background:transparent;border:none;width:100%;text-align:left;font:inherit;cursor:pointer;color:inherit">
+                                  <span class="hm-tag">L<%= lvl %></span><span><%= hintLabels[lvl] %></span><span class="hm-cost">-<%= hintCosts[lvl] %> pts</span>
+                                </button>
+                              </form>
+                            <% }); %>
+                          </div>
+                        </div>
+                      <% } %>
+                      <form method="post" action="/admin/skip" style="margin:0" onsubmit="return confirm('skip stage for <%= s.alias %>?')">
+                        <input type="hidden" name="user_id" value="<%= s.id %>">
+                        <input type="hidden" name="ordinal" value="<%= s.current_ordinal %>">
+                        <button class="btn sm warn" type="submit">[ skip ]</button>
+                      </form>
+                    </div>
+                  </div>
+                <% }); %>
+                <% if (stuck.length === 0) { %><div class="dim" style="padding:12px 0;font-size:12.5px">everyone is moving. ✓ nothing to attend to.</div><% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cohort funnel -->
+        <div class="section">
+          <div class="section-head">
+            <span class="title">cohort funnel · operators per trial</span>
+            <span class="meta"><span><b><%= players.length %></b> total · cells = active head-count</span></span>
+          </div>
+          <div style="padding:18px 22px">
+            <div style="display:grid;grid-template-columns:repeat(<%= totalChallenges %>, 1fr);gap:4px">
+              <% funnel.forEach(function(n, idx) { var ord = idx + 1; var ch = challenges.find(function(c){return c.ordinal === ord}); var pct = Math.round((n / maxFunnel) * 100); %>
+                <div title="<%= n %> on trial <%= ord %><% if (ch) { %> · <%= ch.title %><% } %>" style="display:flex;flex-direction:column;gap:4px;align-items:stretch">
+                  <div style="height:84px;display:flex;align-items:flex-end;border:1px solid var(--rule);background:rgba(0,0,0,0.4);position:relative">
+                    <div style="width:100%;height:<%= pct %>%;background:<%= n > 0 ? (ord === 1 ? 'color-mix(in oklch, var(--cold), transparent 50%)' : 'color-mix(in oklch, var(--phosphor), transparent 50%)') : 'transparent' %>;<%= n > 0 ? 'box-shadow:0 0 8px color-mix(in oklch, var(--phosphor), transparent 70%) inset;' : '' %>transition:height 0.3s"></div>
+                    <span style="position:absolute;top:4px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--chrome);font-weight:500"><%= n || '' %></span>
+                  </div>
+                  <div style="font-size:9px;letter-spacing:0.05em;text-align:center;color:var(--phosphor-faint)"><%= String(ord).padStart(2,'0') %></div>
+                </div>
+              <% }); %>
+            </div>
+            <div style="display:flex;gap:18px;margin-top:14px;font-size:10.5px;color:var(--phosphor-faint);letter-spacing:0.1em;text-transform:uppercase">
+              <span><span style="display:inline-block;width:10px;height:10px;background:color-mix(in oklch, var(--cold), transparent 50%);vertical-align:middle;margin-right:6px"></span> trial 1 (gate)</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:color-mix(in oklch, var(--phosphor), transparent 50%);vertical-align:middle;margin-right:6px"></span> in-motion</span>
+              <span style="margin-left:auto"><b><%= players.length %></b> total · <%= stuckCount %> stuck</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live feed -->
+        <div class="section">
+          <div class="section-head">
+            <span class="title"><span class="led pulse"></span>live feed</span>
+            <span class="meta"><span>tail · last <b><%= events.length %></b> · auto-refresh 5s</span></span>
+          </div>
+          <div class="feed-list" data-events-list data-last-id="<%= lastEventId %>" style="max-height:280px;overflow:auto">
+            <% events.forEach(function(e, i) { var kind = e.kind || 'attempt'; var letter = (kind[0]||'?').toUpperCase(); %>
+              <div class="feed-row <%= kind %><%= i === 0 ? ' new' : '' %>" data-event-id="<%= e.id %>">
+                <span class="t"><%= e.created_at ? new Date(e.created_at).toISOString().slice(11,19) : '' %></span>
+                <span class="k"><%= letter %></span>
+                <span class="body"><b><%= e.alias || '—' %></b> <%= e.payload || kind %></span>
+                <span class="delta"></span>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+        <% } %>
+
+        <!-- Audit log -->
+        <div class="section">
+          <div class="section-head">
+            <span class="title">audit log · admin actions</span>
+            <span class="meta"><span>append-only · admin_audit_log</span></span>
+          </div>
+          <div style="max-height:260px;overflow:auto">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:170px">when (utc)</th>
+                  <th>email</th>
+                  <th>action</th>
+                  <th>target</th>
+                  <th>payload</th>
+                  <th>ip</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% audit.forEach(function(r) { %>
+                  <tr>
+                    <td class="dim"><%= r.created_at %></td>
+                    <td><%= r.email %></td>
+                    <td><span class="chrome"><%= r.action %></span></td>
+                    <td class="dim"><%= r.target || '—' %></td>
+                    <td class="dim" style="font-size:11.5px;font-style:italic"><%= r.payload || '' %></td>
+                    <td class="dim"><%= r.ip || '' %></td>
+                  </tr>
+                <% }); %>
+                <% if (audit.length === 0) { %>
+                  <tr><td colspan="6" style="color:var(--phosphor-faint);text-align:center">no admin actions logged</td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('_drawer') %>
+
+<script src="/static/admin.js"></script>
+</body>
+</html>

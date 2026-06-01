@@ -1,0 +1,76 @@
+/* CRT terminal theme. Green-on-black, scanlines, monospace. */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #000;
+  color: #00ff7a;
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-size: 15px;
+  line-height: 1.5;
+  text-shadow: 0 0 4px rgba(0,255,122,0.25);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.18) 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+main.crt { padding: 2rem; max-width: 70rem; margin: 0 auto; }
+h1, h2, h3 { font-weight: normal; letter-spacing: 0.05em; }
+a { color: #5fffaf; }
+input, textarea, select, button {
+  background: #001a0d; color: #00ff7a; border: 1px solid #00ff7a;
+  font-family: inherit; font-size: inherit; padding: 0.4rem 0.6rem;
+}
+input:focus, textarea:focus { outline: none; box-shadow: 0 0 6px #00ff7a; }
+button { cursor: pointer; }
+button:hover { background: #00ff7a; color: #000; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px dashed rgba(0,255,122,0.3); }
+th { color: #5fffaf; }
+
+pre { white-space: pre-wrap; }
+
+.countdown {
+  position: sticky; top: 0; z-index: 10;
+  background: #000; border-bottom: 1px solid #00ff7a;
+  padding: 0.7rem 1rem; text-align: center;
+}
+.cd-label { font-size: 0.85rem; opacity: 0.8; letter-spacing: 0.15em; }
+.cd-digits { font-size: 1.6rem; letter-spacing: 0.1em; }
+.cd-digits span { display: inline-block; min-width: 2ch; }
+.countdown.phase-live { border-bottom-color: #ffaa00; color: #ffaa00; text-shadow: 0 0 4px rgba(255,170,0,0.3); }
+.countdown.phase-live.urgent { color: #ff3030; border-bottom-color: #ff3030; }
+.countdown.phase-frozen { color: #ff3030; border-bottom-color: #ff3030; }
+
+.locked { opacity: 0.4; }
+.solved { color: #5fffaf; }
+.current { color: #fff; text-shadow: 0 0 6px #fff; }
+
+.warn { color: #ffaa00; }
+.bad { color: #ff3030; }
+
+.row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+.card { border: 1px solid #00ff7a; padding: 1rem; margin-bottom: 1rem; }
+
+.pill {
+  display: inline-block; padding: 0.5rem 1rem; border: 1px solid #00ff7a;
+  cursor: pointer; user-select: none;
+}
+.pill.red { color: #ff5050; border-color: #ff5050; }
+.pill.blue { color: #5080ff; border-color: #5080ff; }
+
+.flicker { animation: flicker 1.5s infinite; }
+@keyframes flicker { 0%,100%{opacity:1} 50%{opacity:0.7} }

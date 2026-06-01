@@ -1,0 +1,146 @@
+<%
+  // Supplier "we have noticed" notice. Adapted from Claude Design's
+  // SupplierScreen (project-zeroday/screens-violations.jsx). Persistent
+  // amber tone; fires on every login until ops reviews the file.
+  //
+  // Locals:
+  //   alias        — supplier's handle
+  //   strike       — { id, supplier_id, consumer_id, challenge_id,
+  //                    detected_at, acknowledged_at, strike_number }
+  //   totalStrikes — supplier's running cheat_strikes count
+  //   dossier      — { incidents, flagsLeaked, consumers, firstSeen, lastSeen }
+  //   playerEmail  — current player's email
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function fmtDate(s) {
+    if (!s) return '—';
+    return s.replace('T', ' ').slice(0, 16);
+  }
+  function fmtTime(s) {
+    if (!s) return '—:—:—';
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' + pad2(d.getUTCSeconds());
+  }
+  var fileId = '0xPATCH-' + String(dossier.incidents).padStart(3, '0');
+  var primaryFlag = dossier.flagsLeaked && dossier.flagsLeaked.length ? dossier.flagsLeaked[0] : '—';
+  var sessionOpenedAt = fmtTime(strike.detected_at);
+
+  // The "scheduled glitches" panel is narrative flavor. Static rows the
+  // supplier sees on every visit; values are operator-set narrative, not a
+  // real game-mechanic switch. Keep them in voice.
+  var glitches = [
+    { t: '+00:14', txt: 'hint cost on next stage · ',  hl: '+340%',     ok: false },
+    { t: '+00:32', txt: 'submission delay enabled · ', hl: '17.4s',     ok: false },
+    { t: '+01:06', txt: 'leaderboard rank · ',         hl: 'WITHHELD',  ok: false },
+    { t: '+02:41', txt: 'stage timer drift · ',        hl: '−0.6s/min', ok: false },
+    { t: '+03:03', txt: 'glyph rendering · ',          hl: 'occasional',ok: true  },
+    { t: '+03:33', txt: 'audit shadow · ',             hl: 'always-on', ok: false },
+  ];
+
+  var ribbon = 'NOTICE · OPERATIVES WHO SUPPLY UNAUTHORISED FLAGS ARE FROWNED UPON · HELPING ANOTHER OP THINK IS WELCOME · CARRYING THEIR KEYS IS NOT · YOUR FILE IS FLAGGED · YOUR SESSION MAY EXHIBIT GLITCHES · TIMERS MAY DRIFT · HINT COSTS MAY DIVERGE · LEADERBOARD STANDING IS UNDER REVIEW · CONDUCT YOURSELF ACCORDINGLY · ';
+  var warnRibbon = ribbon.replace('NOTICE', 'REMINDER').replace('FROWNED UPON', 'NOT WELCOME');
+%>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>flag-trace anomaly · file <%= fileId %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/violation.css">
+</head>
+<body class="violation-root" style="margin:0;">
+  <div class="supplier-stage">
+    <div class="supplier-ribbon">
+      <div class="track">
+        <span><%= ribbon %></span>
+        <span><%= ribbon %></span>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="left">
+        <div class="crumb">
+          <span class="dot"></span>
+          <span>session opened · <%= sessionOpenedAt %></span>
+          <span style="color:var(--phosphor-faint)">·</span>
+          <span>file <b><%= fileId %></b></span>
+        </div>
+
+        <div class="greet">welcome back, <b><%= alias %></b></div>
+
+        <h1 class="notice">
+          we&nbsp;have<br>
+          <span class="accent">noticed.</span>
+        </h1>
+
+        <p class="blurb">
+          zeroday tracks the <b>provenance</b> of every flag it issues. yours
+          has been observed in another operative&apos;s submission
+          <span class="red">as if it were theirs</span>. the trace is hard to
+          fake; we know who it was issued to.
+        </p>
+        <p class="blurb">
+          the rules are simple. <b>helping another operative think</b> is
+          welcome — that is what the collective is for. <b>handing them your
+          key</b> is not. operatives who supply or consume unauthorised flags
+          are <b>frowned upon, heavily</b>, and their sessions
+          <span class="red">may exhibit glitches</span> — drifting timers,
+          inflated hint costs, withheld standings, the occasional misrendered
+          glyph. nothing dangerous. just inconvenient. and persistent.
+        </p>
+        <p class="blurb" style="color:var(--phosphor-dim)">
+          this notice will appear at every login until your file is reviewed.
+          an operator may clear it. you may not. one more incident and the
+          door closes.
+        </p>
+
+        <div class="ack-row">
+          <form method="post" action="/strike-notice/ack">
+            <button type="submit" class="btn-ack">acknowledged · enter session</button>
+          </form>
+          <form method="post" action="/auth/logout">
+            <button type="submit" class="btn-ack ghost">sign out</button>
+          </form>
+          <span class="ack-meta">ack required to proceed</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="dossier">
+          <h4>dossier · supplier file</h4>
+          <div class="kvr">
+            <div class="k">alias</div>            <div class="v"><%= alias %></div>
+            <div class="k">file id</div>          <div class="v amber"><%= fileId %></div>
+            <div class="k">incidents</div>        <div class="v warn"><%= dossier.incidents %> · escalating</div>
+            <div class="k">flags leaked</div>     <div class="v"><%= dossier.flagsLeaked.length %> &rarr; <%= primaryFlag %></div>
+            <div class="k">downstream</div>       <div class="v warn"><%= dossier.consumers.length %> operative<%= dossier.consumers.length === 1 ? '' : 's' %> &rarr; struck</div>
+            <div class="k">first seen</div>       <div class="v"><%= fmtDate(dossier.firstSeen) %></div>
+            <div class="k">last seen</div>        <div class="v"><%= fmtDate(dossier.lastSeen) %></div>
+            <div class="k">status</div>           <div class="v amber">UNDER REVIEW</div>
+          </div>
+        </div>
+
+        <div class="glitch-log">
+          <div class="l-head">scheduled glitches · this session</div>
+          <% glitches.forEach(function(e) { %>
+            <div class="row">
+              <span class="t"><%= e.t %></span>
+              <span><%= e.txt %><b<% if (e.ok) { %> class="ok"<% } %>><%= e.hl %></b></span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <div class="supplier-ribbon warn">
+      <div class="track">
+        <span><%= warnRibbon %></span>
+        <span><%= warnRibbon %></span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

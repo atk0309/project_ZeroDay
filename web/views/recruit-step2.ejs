@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeroday // transmission</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/recruit-flow.css">
+</head>
+<body class="recruit-flow">
+<%
+  const safeAlias = String(alias || 'operator').replace(/[<>&"']/g, function (c) {
+    return { '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+  const safeEmail = String(email || 'operator@???').replace(/[<>&"']/g, function (c) {
+    return { '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+  const clientId = 'anon-' + Math.random().toString(36).slice(2, 10);
+  const bootLines = [
+    '<span class="dim">[zeroday] negotiating with handshake server…</span>',
+    '<span class="dim">[zeroday] resolving _secure._tcp.example.com</span>',
+    '<span class="ok">[zeroday] 108.162.210.147 via amsterdam-03 (32ms)</span>',
+    '',
+    '<span class="dim">ESTABLISHING SECURE CHANNEL</span>',
+    '<span class="dim">├─ SNI:       example.com (wildcard)</span>',
+    '<span class="dim">├─ cipher:    TLS_AES_256_GCM_SHA384</span>',
+    '<span class="dim">├─ client id: ' + clientId + '</span>',
+    '<span class="ok">└─ status:    OK</span>',
+    '',
+    '<span class="dim">tracert to gibson.example.com [198.51.100.47]</span>',
+    '<span class="dim">  1   &lt;1 ms   your-router.lan</span>',
+    '<span class="dim">  2    8 ms   be-3.core2-lond.cust.isp.net</span>',
+    '<span class="dim">  3   12 ms   lag-1.amsterdam-03.carrier.eu</span>',
+    '<span class="dim">  4   41 ms   * * * (response redacted)</span>',
+    '<span class="dim">  5   43 ms   * * * (response redacted)</span>',
+    '<span class="ok">  6   47 ms   gibson.example.com (responding)</span>',
+    '',
+    '<span class="dim">PGP handshake</span>',
+    '<span class="dim">├─ their key: 0x4A7F · trusted</span>',
+    '<span class="dim">├─ your key:  generated on-the-fly · ephemeral</span>',
+    '<span class="ok">├─ fp match:  AF 21 9C 3D  EE 77 04 B2  1A 55 9C 9F  8C 03 AA 11</span>',
+    '<span class="ok">└─ status:    SIGNED</span>',
+    '',
+    '<span class="dim">dispatching recruitment transmission…</span>',
+    '<span class="dim">└─ target: <span class="chrome">' + safeEmail + '</span></span>',
+    '',
+    '<span class="ok">  ████████████████████████████████  100%</span>',
+    '',
+    '<span class="chrome glow">transmission sent. check your email, <span class="glow-strong">' + safeAlias + '</span>.</span>'
+  ];
+%>
+<div class="crt-stage" data-flow="boot-email">
+
+  <div class="chrome-bar" data-chrome="boot">
+    <div class="row">
+      <div class="dots"><span class="dot live"></span><span class="dot"></span><span class="dot"></span></div>
+      <span>handshake.example.com</span>
+    </div>
+    <div class="row right">
+      <span class="dim">ZERODAY BOOT v3.14</span>
+      <span>CH://NEGOTIATING</span>
+    </div>
+  </div>
+
+  <div class="chrome-bar is-hidden" data-chrome="inbox">
+    <div class="row">
+      <div class="dots"><span class="dot live"></span><span class="dot"></span><span class="dot"></span></div>
+      <span>inbox // your-client.local</span>
+    </div>
+    <div class="row right">
+      <span>CH://RECEIVED</span>
+    </div>
+  </div>
+
+  <div class="screen">
+    <div class="boot-stage stack" style="max-width: 760px; width: 100%; margin: 0 auto;">
+      <pre class="ascii term-sm dim" style="margin-bottom: 20px;">
+    _    _     _     ____ _   _ ___ ____
+   / \  | |   | |   / ___| | | |_ _/ ___|
+  / _ \ | |   | |  | |   | |_| || |\___ \
+ / ___ \| |___| |__| |___|  _  || | ___) |
+/_/   \_\_____|_____\____|_| |_|___|____/
+   //  outbound recruitment protocol  //</pre>
+
+      <div class="typed-block boot-lines"
+           data-no-auto="1"
+           data-speed="14"
+           data-line-delay="120"
+           data-lines="<%= JSON.stringify(bootLines) %>"></div>
+
+      <button type="button" class="term-btn" data-skip="boot"
+              style="position: absolute; top: 20px; right: 20px;">[ skip ]</button>
+    </div>
+
+    <div class="email-stage stack-lg is-hidden" style="max-width: 720px; width: 100%; margin: 0 auto;">
+      <div class="stack" style="gap: 4px;">
+        <div class="term-xs dim">ONE NEW MESSAGE</div>
+        <div class="term-xl chrome glow"
+             data-countdown-prefix="[zeroday] transmission received — ">
+          [zeroday] transmission received — <span data-countdown-out>15:00</span>
+        </div>
+      </div>
+
+      <div class="email-card">
+        <div class="email-headers">
+          <div class="row between term-xs dim">
+            <span><span class="dim">from:</span> <span class="chrome">the collective &lt;no-reply@example.com&gt;</span></span>
+            <span>UTF-8 · PGP signed</span>
+          </div>
+          <div class="row term-xs dim" style="gap: 12px;">
+            <span style="width: 60px;">to:</span>
+            <span class="chrome"><%= alias || 'operator' %> &lt;<%= email || 'you@somewhere.net' %>&gt;</span>
+          </div>
+          <div class="row term-xs dim" style="gap: 12px;">
+            <span style="width: 60px;">subj:</span>
+            <span class="chrome">transmission received — <span data-countdown-out>15:00</span></span>
+          </div>
+        </div>
+
+        <pre class="ascii term-sm dim">  ╔══════════════════════════════════════════════╗
+  ║   ::  you made it this far.  ::              ║
+  ║   ::  we have been watching.  ::             ║
+  ╚══════════════════════════════════════════════╝</pre>
+
+        <div class="term" style="font-size: 14px; line-height: 1.7;">
+          <p style="margin: 0;">
+            <span class="dim">&gt;</span> <span class="chrome"><%= alias || 'operator' %></span>,
+          </p>
+          <p style="margin: 14px 0 0;">
+            we watch the lurkers. the ones who open view-source on ordinary pages.
+            you are one of them.
+          </p>
+          <p style="margin: 14px 0 0;">
+            the key below is keyed to your silhouette. it will not work for anyone else.
+            it decays in <span class="warn glow" data-countdown-out>15:00</span>.
+          </p>
+          <p style="margin: 18px 0;">
+            past the door: nineteen trials, in order, one at a time.
+            one machine worth breaking at the end. you know the one.
+          </p>
+        </div>
+
+        <div class="email-key-block">
+          <div class="term-xs dim">→ DECRYPTION KEY · single-use</div>
+          <% if (devLink) { %>
+            <a class="email-key-link glow" href="<%= devLink %>">
+              <strong><%= devLink %></strong>
+            </a>
+            <div class="row" style="margin-top: 6px; justify-content: space-between; align-items: center;">
+              <span class="term-xs warn">[dev] mail offline — link served inline</span>
+              <a href="<%= devLink %>" class="term-btn glow" style="text-decoration: none;">[ decrypt &amp; enter ]</a>
+            </div>
+          <% } else { %>
+            <div class="email-key-link">
+              https://hack.example.com/auth?token=<strong>0xAF219C3D-EE7704B2-1A559C9F-8C03AA11</strong>
+            </div>
+            <div class="row" style="margin-top: 6px; justify-content: space-between; align-items: center;">
+              <span class="term-xs dim">expires in <span class="warn" data-countdown-out>15:00</span></span>
+              <span class="term-xs dim">→ check your inbox to decrypt &amp; enter</span>
+            </div>
+          <% } %>
+        </div>
+
+        <div class="term-xs dim" style="margin-top: 4px; line-height: 1.6;">
+          — m.<br>
+          &nbsp;&nbsp;on behalf of the ones who wait.
+        </div>
+      </div>
+
+      <div data-countdown="900" style="display: none;"></div>
+    </div>
+  </div>
+
+</div>
+<script src="/static/recruit-flow.js"></script>
+</body>
+</html>

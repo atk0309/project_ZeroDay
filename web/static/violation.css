@@ -1,0 +1,534 @@
+/*
+ * Cheater + Supplier violation screens.
+ * Adapted from the Claude Design handoff (project-zeroday/Admin Console.html
+ * + screens-violations.jsx + admin.css). Self-contained — bakes in the CRT
+ * vocabulary tokens these screens need so /frozen and /strike-notice can be
+ * served without depending on the operator console stylesheet.
+ */
+
+/* ─── design tokens ────────────────────────────────────────── */
+.violation-root {
+  --bg: #050a08;
+  --phosphor: oklch(86% 0.18 145);
+  --phosphor-dim: oklch(70% 0.14 145);
+  --phosphor-faint: oklch(55% 0.10 145);
+  --phosphor-ghost: oklch(40% 0.06 145);
+  --chrome: oklch(95% 0.02 145);
+  --rule: oklch(45% 0.06 145 / 0.4);
+  --line-faint: oklch(45% 0.06 145 / 0.2);
+}
+
+/* ─── shared keyframes ─────────────────────────────────────── */
+@keyframes vio-redHeart {
+  0%, 100% { --flash: 1; }
+  6%       { --flash: 0.05; }
+  12%      { --flash: 1; }
+  18%      { --flash: 0.18; }
+  50%      { --flash: 0.55; }
+}
+@keyframes vio-scanScroll {
+  from { background-position-y: 0; }
+  to   { background-position-y: 8px; }
+}
+@keyframes vio-klaxon {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+@keyframes vio-hardJitter {
+  0%   { transform: translate(0,0); }
+  20%  { transform: translate(-1px, 1px); }
+  40%  { transform: translate(1px, -1px); }
+  60%  { transform: translate(-2px, 0); }
+  80%  { transform: translate(2px, 1px); }
+  100% { transform: translate(0,0); }
+}
+@keyframes vio-textGlitch {
+  0%, 100% { text-shadow: 0 0 12px var(--cheat-red), 0 0 32px var(--cheat-red); transform: translate(0,0); }
+  10%      { text-shadow: -2px 0 0 #ff003c, 2px 0 0 #00e0ff; }
+  20%      { text-shadow: 2px 0 0 #ff003c, -2px 0 0 #00e0ff; transform: translate(-1px, 0); }
+  30%      { text-shadow: 0 0 12px var(--cheat-red), 0 0 32px var(--cheat-red); }
+  60%      { text-shadow: -1px 0 0 #ff003c, 1px 0 0 #00e0ff; transform: translate(1px,1px); }
+}
+@keyframes vio-marqueeL {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes vio-glitchBlip {
+  0%, 96%, 100% { opacity: 1; transform: translate(0,0); filter: none; }
+  97% { opacity: 0.4; transform: translate(-1px, 1px); filter: hue-rotate(-25deg); }
+  98% { opacity: 1; transform: translate(2px, 0); }
+  99% { opacity: 0.7; transform: translate(0, 1px); filter: contrast(1.4); }
+}
+@keyframes vio-ribbonScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes vio-amberFlicker {
+  0%, 100% { opacity: 1; }
+  6%       { opacity: 0.55; }
+  9%       { opacity: 1; }
+  88%      { opacity: 1; }
+  91%      { opacity: 0.7; }
+}
+@keyframes vio-ledPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHEATER — caught using somebody else's solve flag.
+   Loud, sinister, pulsing red.
+═══════════════════════════════════════════════════════════ */
+.cheater-stage {
+  --cheat-red: #ff1830;
+  --cheat-red-dim: #b00018;
+  --cheat-red-deep: #2a0006;
+  position: fixed; inset: 0;
+  background: #0a0000;
+  color: var(--cheat-red);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  overflow: hidden;
+  z-index: 5000;
+  animation: vio-redHeart 1.2s steps(60) infinite;
+}
+.cheater-stage::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(255,24,48,0.55) 0%, rgba(120,0,8,0.85) 55%, rgba(10,0,0,1) 100%);
+  opacity: var(--flash, 1);
+  pointer-events: none; z-index: 0;
+  mix-blend-mode: screen;
+}
+.cheater-stage::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.55) 3px, rgba(0,0,0,0.55) 4px);
+  pointer-events: none; z-index: 4;
+  animation: vio-scanScroll 0.4s linear infinite;
+}
+.cheater-stage .vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.85) 100%);
+  pointer-events: none; z-index: 3;
+}
+.cheater-stage .klax {
+  position: absolute;
+  width: 92px; height: 92px;
+  border: 2px solid var(--cheat-red);
+  background: rgba(255,24,48,0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; letter-spacing: 0.28em;
+  color: var(--cheat-red);
+  text-shadow: 0 0 10px var(--cheat-red);
+  z-index: 5;
+  animation: vio-klaxon 0.6s steps(2) infinite;
+}
+.cheater-stage .klax.tl { top: 24px; left: 24px; }
+.cheater-stage .klax.tr { top: 24px; right: 24px; animation-delay: 0.3s; }
+.cheater-stage .klax.bl { bottom: 24px; left: 24px; animation-delay: 0.3s; }
+.cheater-stage .klax.br { bottom: 24px; right: 24px; }
+.cheater-stage .klax::before {
+  content: ""; position: absolute; inset: 8px;
+  border: 1px solid var(--cheat-red);
+}
+.cheater-stage .klax .glyph {
+  position: relative; z-index: 1; font-size: 28px; letter-spacing: 0;
+  text-shadow: 0 0 16px var(--cheat-red);
+}
+.cheater-stage .marquee {
+  position: absolute; left: 0; right: 0;
+  height: 28px;
+  background: var(--cheat-red);
+  color: #0a0000;
+  overflow: hidden;
+  z-index: 6;
+  display: flex; align-items: center;
+  font-size: 12px; letter-spacing: 0.3em; font-weight: 600;
+  text-transform: uppercase;
+  box-shadow: 0 0 24px var(--cheat-red);
+}
+.cheater-stage .marquee.top { top: 0; }
+.cheater-stage .marquee.bottom { bottom: 0; }
+.cheater-stage .marquee .track {
+  display: flex; gap: 48px;
+  white-space: nowrap;
+  animation: vio-marqueeL 28s linear infinite;
+  padding-left: 24px;
+}
+.cheater-stage .marquee.bottom .track { animation-direction: reverse; animation-duration: 34s; }
+.cheater-stage .core {
+  position: relative; z-index: 5;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 1fr auto 1fr;
+  align-items: center; justify-items: center;
+  padding: 56px 80px;
+  animation: vio-hardJitter 0.18s steps(5) infinite;
+}
+.cheater-stage .preamble {
+  text-align: center;
+  align-self: end;
+  display: flex; flex-direction: column; gap: 14px;
+  margin-bottom: 28px;
+}
+.cheater-stage .preamble .stamp {
+  font-size: 11px; letter-spacing: 0.32em;
+  color: var(--cheat-red);
+  border: 1px solid var(--cheat-red);
+  padding: 6px 14px;
+  align-self: center;
+  background: rgba(255,24,48,0.08);
+  text-shadow: 0 0 8px var(--cheat-red);
+}
+.cheater-stage .preamble .vict {
+  font-size: 13px; letter-spacing: 0.22em;
+  color: #ffb0b0;
+  text-transform: uppercase;
+}
+.cheater-stage .verdict {
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 200px;
+  line-height: 0.85;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow:
+    0 0 6px var(--cheat-red),
+    0 0 24px var(--cheat-red),
+    0 0 64px var(--cheat-red);
+  animation: vio-textGlitch 1.6s infinite;
+  margin: 0;
+  text-align: center;
+  position: relative;
+}
+.cheater-stage .verdict .sub {
+  display: block;
+  font-size: 56px;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.18em;
+  color: var(--cheat-red);
+  text-shadow: 0 0 8px var(--cheat-red);
+  margin-top: 12px;
+  animation: none;
+}
+.cheater-stage .verdict::before,
+.cheater-stage .verdict::after {
+  content: "";
+  position: absolute;
+  height: 4px;
+  background: var(--cheat-red);
+  box-shadow: 0 0 12px var(--cheat-red);
+}
+.cheater-stage .verdict::before { top: -28px; left: 10%; right: 10%; }
+.cheater-stage .verdict::after  { bottom: -28px; left: 10%; right: 10%; }
+
+.cheater-stage .evidence {
+  align-self: start;
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--cheat-red);
+  background: rgba(0,0,0,0.7);
+  margin-top: 28px;
+  box-shadow: 0 0 28px rgba(255,24,48,0.45);
+}
+.cheater-stage .evidence .cell {
+  padding: 14px 18px;
+  border-right: 1px solid var(--cheat-red-dim);
+  font-size: 11px; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffb0b0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.cheater-stage .evidence .cell:last-child { border-right: none; }
+.cheater-stage .evidence .cell .l { font-size: 9.5px; letter-spacing: 0.24em; color: var(--cheat-red); }
+.cheater-stage .evidence .cell .v {
+  font-size: 14px; color: #fff; letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 8px var(--cheat-red);
+  word-break: break-all;
+}
+.cheater-stage .evidence .cell .v.flag {
+  font-family: "VT323", "Courier New", monospace; font-size: 22px;
+  color: #fff; letter-spacing: 0.05em;
+}
+.cheater-stage .strike-row {
+  margin-top: 18px;
+  display: flex; gap: 14px; align-items: center; justify-content: center;
+}
+.cheater-stage .strike {
+  width: 64px; height: 64px;
+  border: 2px solid var(--cheat-red);
+  display: flex; align-items: center; justify-content: center;
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 48px;
+  color: var(--cheat-red);
+  background: rgba(255,24,48,0.08);
+  position: relative;
+}
+.cheater-stage .strike.hit {
+  background: var(--cheat-red);
+  color: #0a0000;
+  box-shadow: 0 0 24px var(--cheat-red);
+}
+.cheater-stage .strike.hit::after {
+  content: ""; position: absolute; inset: 4px;
+  border: 1px solid #0a0000;
+}
+.cheater-stage .strike-label {
+  font-size: 10px; letter-spacing: 0.28em; color: #ffb0b0; text-transform: uppercase;
+  margin-left: 8px;
+}
+.cheater-stage .override {
+  position: absolute;
+  bottom: 56px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  background: rgba(0,0,0,0.85);
+  border: 1px solid var(--cheat-red-dim);
+  padding: 12px 22px;
+  display: flex; align-items: center; gap: 16px;
+  font-size: 10.5px; letter-spacing: 0.18em;
+  color: #ffb0b0;
+  text-transform: uppercase;
+}
+.cheater-stage .override .lbl { color: var(--cheat-red); }
+.cheater-stage .override .btn-ovr {
+  font-family: inherit;
+  background: transparent;
+  color: var(--cheat-red);
+  border: 1px solid var(--cheat-red);
+  padding: 6px 14px;
+  font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cheater-stage .override .btn-ovr:hover {
+  background: var(--cheat-red); color: #0a0000;
+  box-shadow: 0 0 18px var(--cheat-red);
+}
+.cheater-stage .override .btn-ovr.ghost {
+  border-color: var(--cheat-red-dim); color: #ffb0b0;
+}
+.cheater-stage .override form { display: contents; margin: 0; }
+.cheater-stage .ip-block {
+  position: absolute;
+  left: 24px; bottom: 56px;
+  z-index: 5;
+  font-size: 10.5px; letter-spacing: 0.16em;
+  color: #ffb0b0;
+  text-transform: uppercase;
+  line-height: 1.7;
+  max-width: 300px;
+}
+.cheater-stage .ip-block b { color: #fff; text-shadow: 0 0 6px var(--cheat-red); }
+.cheater-stage .ascii-skull {
+  position: absolute; right: 24px; bottom: 56px; z-index: 5;
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 11px; line-height: 1.05;
+  color: var(--cheat-red);
+  text-shadow: 0 0 8px var(--cheat-red);
+  white-space: pre;
+  opacity: 0.7;
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SUPPLIER — login banner for the operative who supplied a flag.
+   Persistent running message. Cooler tone — amber + faint red.
+═══════════════════════════════════════════════════════════ */
+.supplier-stage {
+  --sup-amber: oklch(78% 0.18 70);
+  --sup-amber-dim: oklch(60% 0.14 70);
+  --sup-red: oklch(68% 0.22 25);
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, color-mix(in oklch, var(--sup-amber), transparent 92%), transparent 60%),
+    radial-gradient(ellipse at 80% 80%, color-mix(in oklch, var(--sup-red), transparent 92%), transparent 60%),
+    var(--bg);
+  color: var(--phosphor);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  overflow: auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  animation: vio-amberFlicker 7s infinite;
+}
+.supplier-ribbon {
+  background: var(--sup-amber);
+  color: #1a0d00;
+  height: 32px;
+  overflow: hidden;
+  display: flex; align-items: center;
+  font-size: 12px; letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  border-bottom: 1px solid var(--sup-amber-dim);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--sup-amber), transparent 70%);
+}
+.supplier-ribbon .track {
+  display: flex; gap: 56px; white-space: nowrap;
+  animation: vio-ribbonScroll 60s linear infinite;
+  padding-left: 56px;
+}
+.supplier-ribbon.warn { background: var(--sup-red); color: #1a0000; }
+
+.supplier-stage .body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 48px;
+  align-items: start;
+  padding: 48px 64px;
+  position: relative;
+  z-index: 1;
+}
+.supplier-stage .body::before {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px);
+  pointer-events: none;
+}
+.supplier-stage .left {
+  display: flex; flex-direction: column; gap: 22px;
+  position: relative; z-index: 1;
+  animation: vio-glitchBlip 9s infinite;
+}
+.supplier-stage .crumb {
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--sup-amber);
+  display: flex; gap: 14px; align-items: center;
+}
+.supplier-stage .crumb .dot {
+  width: 8px; height: 8px; background: var(--sup-amber);
+  box-shadow: 0 0 6px var(--sup-amber);
+  animation: vio-ledPulse 1.5s infinite;
+}
+.supplier-stage .crumb b { color: var(--sup-amber); }
+.supplier-stage .greet {
+  font-size: 14px; letter-spacing: 0.18em;
+  color: var(--phosphor-dim);
+  text-transform: uppercase;
+}
+.supplier-stage .greet b { color: var(--chrome); }
+.supplier-stage h1.notice {
+  font-family: "VT323", "Courier New", monospace;
+  font-size: 96px;
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+  color: var(--sup-amber);
+  text-shadow: 0 0 12px color-mix(in oklch, var(--sup-amber), transparent 50%);
+  margin: 0;
+  font-weight: normal;
+}
+.supplier-stage h1.notice .accent { color: var(--sup-red); text-shadow: 0 0 12px color-mix(in oklch, var(--sup-red), transparent 50%); }
+.supplier-stage .blurb {
+  font-size: 14.5px; line-height: 1.7;
+  color: var(--phosphor);
+  max-width: 620px;
+  letter-spacing: 0.02em;
+}
+.supplier-stage .blurb b { color: var(--sup-amber); font-weight: 500; }
+.supplier-stage .blurb .red { color: var(--sup-red); }
+.supplier-stage .ack-row {
+  display: flex; gap: 12px; margin-top: 12px; align-items: center; flex-wrap: wrap;
+}
+.supplier-stage .ack-row form { margin: 0; display: contents; }
+.supplier-stage .ack-row .btn-ack {
+  font-family: inherit;
+  background: var(--sup-amber);
+  color: #1a0d00;
+  border: 1px solid var(--sup-amber);
+  padding: 9px 18px;
+  font-size: 11.5px; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-weight: 600;
+}
+.supplier-stage .ack-row .btn-ack:hover { box-shadow: 0 0 18px var(--sup-amber); }
+.supplier-stage .ack-row .btn-ack.ghost {
+  background: transparent; color: var(--phosphor-dim);
+  border-color: var(--phosphor-ghost);
+  font-weight: 400;
+}
+.supplier-stage .ack-row .ack-meta {
+  font-size: 10px; letter-spacing: 0.18em;
+  color: var(--phosphor-faint);
+  margin-left: auto;
+  text-transform: uppercase;
+}
+
+.supplier-stage .right {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.supplier-stage .dossier {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--sup-amber-dim);
+  padding: 20px 22px;
+  position: relative;
+}
+.supplier-stage .dossier::before {
+  content: "FILE / RESTRICTED";
+  position: absolute; top: -10px; left: 18px;
+  background: var(--bg);
+  padding: 0 8px;
+  font-size: 9.5px; letter-spacing: 0.28em;
+  color: var(--sup-amber);
+}
+.supplier-stage .dossier h4 {
+  font-size: 10px; letter-spacing: 0.28em;
+  margin: 0 0 14px;
+  color: var(--phosphor-faint);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.supplier-stage .dossier .kvr {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  font-size: 12px;
+  border-top: 1px solid var(--rule);
+}
+.supplier-stage .dossier .kvr > div {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line-faint);
+  word-break: break-all;
+}
+.supplier-stage .dossier .kvr .k { color: var(--phosphor-faint); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+.supplier-stage .dossier .kvr .v { color: var(--phosphor); font-variant-numeric: tabular-nums; }
+.supplier-stage .dossier .kvr .v.warn { color: var(--sup-red); }
+.supplier-stage .dossier .kvr .v.amber { color: var(--sup-amber); }
+
+.supplier-stage .glitch-log {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid var(--rule);
+  padding: 12px 16px;
+  font-size: 11px; line-height: 1.7;
+  color: var(--phosphor-dim);
+  font-variant-numeric: tabular-nums;
+}
+.supplier-stage .glitch-log .l-head {
+  font-size: 9.5px; letter-spacing: 0.24em;
+  color: var(--sup-amber);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.supplier-stage .glitch-log .row {
+  display: grid; grid-template-columns: 64px 1fr; gap: 10px;
+  border-bottom: 1px dashed var(--line-faint);
+  padding: 3px 0;
+}
+.supplier-stage .glitch-log .row:last-child { border-bottom: none; }
+.supplier-stage .glitch-log .row .t { color: var(--phosphor-faint); }
+.supplier-stage .glitch-log .row b { color: var(--sup-red); font-weight: 400; }
+.supplier-stage .glitch-log .row .ok { color: var(--sup-amber); }
+
+@media (max-width: 1180px) {
+  .supplier-stage .body { grid-template-columns: 1fr; padding: 32px 24px; }
+  .cheater-stage .verdict { font-size: 120px; }
+  .cheater-stage .verdict .sub { font-size: 32px; }
+  .cheater-stage .core { padding: 56px 32px; }
+}

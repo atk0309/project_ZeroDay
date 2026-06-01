@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>account — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+<%
+  var section = (typeof active !== 'undefined' && active) ? active : 'password';
+  var s = (typeof settings !== 'undefined' && settings) ? settings : {};
+  var mailReady = (typeof mailConfigured !== 'undefined') ? !!mailConfigured : false;
+  var savedFlash = (typeof savedFlash !== 'undefined' && savedFlash) ? savedFlash : '';
+  var sectionStatuses = {
+    password: 'ok',
+    mail:     mailReady ? 'ok' : (s.mail_provider ? 'warn' : 'todo')
+  };
+  var sections = [
+    { id: 'password', num: '◆', label: 'password',       subtitle: 'rotate the operator passphrase' },
+    { id: 'mail',     num: '✉', label: 'mail subsystem', subtitle: 'resend or smtp · system setting' }
+  ];
+%>
+<div class="crt-stage">
+  <div class="setup-shell">
+    <aside class="setup-nav">
+      <div class="header">
+        <div class="crumb">/admin/account</div>
+        <h2>account</h2>
+        <div style="font-size:11px;color:var(--phosphor-dim);letter-spacing:0.04em;line-height:1.65;margin-top:8px">
+          operator-owned settings.<br/>not part of game launch.
+        </div>
+      </div>
+      <% sections.forEach(function(it) {
+        var status = sectionStatuses[it.id] || 'todo';
+        var sym = status === 'ok' ? '✓' : status === 'warn' ? '!' : '◌';
+      %>
+        <a class="setup-nav-item <%= section === it.id ? 'active' : '' %>" href="/admin/account?section=<%= it.id %>">
+          <span class="num"><%= it.num %></span>
+          <div>
+            <div><%= it.label %></div>
+            <div style="font-size:9.5px;color:var(--phosphor-faint);letter-spacing:0.06em;text-transform:lowercase;margin-top:2px"><%= it.subtitle %></div>
+          </div>
+          <span class="status <%= status %>"><%= sym %></span>
+        </a>
+      <% }); %>
+      <div style="padding:24px 24px 0;border-top:1px solid var(--rule);margin-top:16px">
+        <a class="btn sm" href="/admin">[ ← dashboard ]</a>
+      </div>
+    </aside>
+
+    <div class="setup-page">
+      <% if (section === 'password') { %>
+      <div class="setup-page-head">
+        <div>
+          <div class="crumb">◆ ACCOUNT · PASSWORD</div>
+          <h1>rotate the passphrase</h1>
+          <div class="desc">argon2id, stored in app_settings.admin_password_hash. rotating ends all admin sessions on next request — including this one.</div>
+        </div>
+      </div>
+      <form method="post" action="/admin/account/password" class="setup-page-body" style="display:block">
+        <div class="fld">
+          <div class="l">current password</div>
+          <div class="v">
+            <input class="input" type="password" name="current_password" autocomplete="current-password" />
+          </div>
+        </div>
+        <div class="fld">
+          <div class="l">new password · 8+
+            <span class="hint">passphrases &gt; passwords. four words is fine.</span>
+          </div>
+          <div class="v">
+            <input class="input" type="password" name="new_password" autocomplete="new-password" minlength="8" required />
+          </div>
+        </div>
+        <div class="fld">
+          <div class="l">confirm</div>
+          <div class="v">
+            <input class="input" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required />
+          </div>
+        </div>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+          <div class="toast <%= success ? '' : 'warn' %>" style="position:static;margin-top:12px"><%= message %></div>
+        <% } %>
+
+        <div style="margin-top:28px;padding-top:20px;border-top:1px dashed var(--rule)">
+          <%
+            var rows = (typeof sessions !== 'undefined' && sessions) ? sessions : [];
+            var curSid = (typeof currentSid !== 'undefined' && currentSid) ? currentSid : '';
+            function sumarizeUa(ua) {
+              if (!ua) return 'unknown client';
+              var s = String(ua);
+              var bits = [];
+              if (/Mac OS X|Macintosh/i.test(s)) bits.push('mac');
+              else if (/Windows/i.test(s)) bits.push('win');
+              else if (/Linux/i.test(s)) bits.push('linux');
+              else if (/iPhone|iPad/i.test(s)) bits.push('ios');
+              else if (/Android/i.test(s)) bits.push('android');
+              else bits.push('unknown');
+              if (/Chrome\/(\d+)/i.test(s)) bits.push('chrome ' + s.match(/Chrome\/(\d+)/i)[1]);
+              else if (/Firefox\/(\d+)/i.test(s)) bits.push('firefox ' + s.match(/Firefox\/(\d+)/i)[1]);
+              else if (/Safari\/(\d+)/i.test(s)) bits.push('safari');
+              else if (/curl/i.test(s)) bits.push('curl');
+              return bits.join(' · ');
+            }
+            function fmtSeen(iso) {
+              if (!iso) return '—';
+              var ms = Date.now() - new Date(iso).getTime();
+              if (ms < 60000) return 'now';
+              if (ms < 3600000) return Math.floor(ms/60000) + 'm ago';
+              if (ms < 86400000) return Math.floor(ms/3600000) + 'h ago';
+              return Math.floor(ms/86400000) + 'd ago';
+            }
+          %>
+          <h4 style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--phosphor-dim);font-weight:500">active sessions · <%= rows.length %></h4>
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:1px">
+            <% if (rows.length === 0) { %>
+              <div class="dim" style="padding:14px;font-size:12px">no other sessions on record</div>
+            <% } %>
+            <% rows.forEach(function(s) { var isThis = s.id === curSid; %>
+              <div style="display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;padding:10px 14px;background:rgba(0,0,0,0.4);border:1px solid var(--rule);font-size:12px">
+                <div>
+                  <div class="chrome"><%= sumarizeUa(s.user_agent) %><% if (isThis) { %><span style="color:var(--phosphor);margin-left:8px;font-size:10px;letter-spacing:0.12em">· this session</span><% } %></div>
+                  <div class="dim" style="font-size:10.5px;margin-top:2px;letter-spacing:0.04em"><%= s.ip || '—' %> · <%= s.email %></div>
+                </div>
+                <span class="dim" style="font-size:11px"><%= fmtSeen(s.last_seen_at) %></span>
+                <% if (isThis) { %>
+                  <button class="btn sm" type="button" disabled title="this is your current session">[ this ]</button>
+                <% } else { %>
+                  <form method="post" action="/admin/account/sessions/<%= s.id %>/revoke" style="margin:0" onsubmit="return confirm('revoke session?')">
+                    <button class="btn sm warn" type="submit">[ revoke ]</button>
+                  </form>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <span class="saved-msg" style="opacity:0"></span>
+          <div style="display:flex;gap:10px">
+            <a class="btn" href="/admin">[ cancel ]</a>
+            <button class="btn solid" type="submit">[ change password ]</button>
+          </div>
+        </div>
+      </form>
+
+      <% } else if (section === 'mail') { %>
+      <div class="setup-page-head">
+        <div>
+          <div class="crumb">✉ ACCOUNT · MAIL SUBSYSTEM</div>
+          <h1>how the door opens</h1>
+          <div class="desc">recruits + admins receive magic links by mail. configure either resend (http) or smtp (nodemailer). the magic-link button on /admin/login goes live only after a successful test message.</div>
+        </div>
+      </div>
+      <form method="post" action="/admin/account/mail" class="setup-page-body" style="display:block">
+        <div class="fld">
+          <div class="l">provider <span class="req">*</span></div>
+          <div class="v">
+            <div class="seg-radio" role="radiogroup">
+              <label class="<%= (s.mail_provider || 'resend') === 'resend' ? 'active' : '' %>">
+                <input type="radio" name="provider" value="resend" hidden <%= (s.mail_provider || 'resend') === 'resend' ? 'checked' : '' %> />
+              </label>
+              <button type="button" class="<%= (s.mail_provider || 'resend') === 'resend' ? 'active' : '' %>" data-provider="resend">resend</button>
+              <button type="button" class="<%= s.mail_provider === 'smtp' ? 'active' : '' %>" data-provider="smtp">smtp</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="fld">
+          <div class="l">from
+            <span class="hint">rfc 5322 · "name &lt;addr@host&gt;" or bare addr</span>
+          </div>
+          <div class="v">
+            <input class="input" name="mail_from" value="<%= s.mail_from || 'recruit@example.com' %>" />
+          </div>
+        </div>
+
+        <div class="fld">
+          <div class="l">admin email <span class="req">*</span>
+            <span class="hint">where the test message goes · also the only address that can magic-link in</span>
+          </div>
+          <div class="v">
+            <input class="input" type="email" name="admin_email" value="<%= s.admin_email || 'admin@example.com' %>" />
+          </div>
+        </div>
+
+        <div data-provider-fields="resend" style="<%= s.mail_provider === 'smtp' ? 'display:none' : '' %>">
+          <div class="fld">
+            <div class="l">api key <span class="req">*</span>
+              <span class="hint">resend account token · prefix re_ · used by lib/mail.ts to authenticate every send</span>
+            </div>
+            <div class="v">
+              <input class="input" type="password" name="resend_api_key" placeholder="re_•••" />
+            </div>
+          </div>
+        </div>
+
+        <div data-provider-fields="smtp" style="<%= s.mail_provider === 'smtp' ? '' : 'display:none' %>">
+          <div class="fld">
+            <div class="l">host <span class="req">*</span></div>
+            <div class="v"><input class="input" name="smtp_host" placeholder="smtp.fastmail.com" /></div>
+          </div>
+          <div class="fld">
+            <div class="l">port <span class="req">*</span></div>
+            <div class="v" style="display:flex;gap:16px;align-items:center">
+              <input class="input" type="number" name="smtp_port" value="587" style="width:100px" />
+              <label class="toggle-pill" data-toggle="smtp_secure">
+                <span class="track"><span class="knob"></span></span>
+                <span>secure (tls)</span>
+                <input type="checkbox" name="smtp_secure" hidden />
+              </label>
+            </div>
+          </div>
+          <div class="fld">
+            <div class="l">user</div>
+            <div class="v"><input class="input" name="smtp_user" placeholder="—" /></div>
+          </div>
+          <div class="fld">
+            <div class="l">pass</div>
+            <div class="v"><input class="input" type="password" name="smtp_pass" placeholder="—" /></div>
+          </div>
+        </div>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+          <div class="toast warn" style="position:static;margin:18px 0"><%= message %></div>
+        <% } %>
+
+        <div class="save-bar">
+          <span class="saved-msg <%= savedFlash === 'mail' ? 'fade-out' : '' %>" style="opacity:<%= savedFlash === 'mail' ? 1 : 0 %>">
+            <%= savedFlash === 'mail' ? '✓ ' + (typeof message !== 'undefined' && message ? message : 'saved') : '' %>
+          </span>
+          <div style="display:flex;gap:10px">
+            <button class="btn solid" type="submit">[ save mail config ]</button>
+          </div>
+        </div>
+      </form>
+      <form method="post" action="/admin/account/mail/test" style="padding:0 36px 24px">
+        <div class="fld">
+          <div class="l">verification
+            <span class="hint">test sends a real message to admin email. on success: mail_configured = true.</span>
+          </div>
+          <div class="v" style="display:flex;gap:10px;align-items:center">
+            <button class="btn" type="submit">[ send test message ]</button>
+            <span class="<%= mailReady ? 'glow' : 'dim' %>" style="font-size:11.5px;letter-spacing:0.1em;color:<%= mailReady ? 'var(--phosphor)' : 'var(--phosphor-faint)' %>">
+              <%= mailReady ? '✓ verified · mail_configured = true' : '◌ unverified' %>
+            </span>
+          </div>
+        </div>
+      </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script src="/static/admin.js"></script>
+</body>
+</html>

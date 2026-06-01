@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeroday // claim your slot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/recruit-flow.css">
+</head>
+<body class="recruit-flow">
+<div class="crt-stage crt-flicker">
+  <div class="screen centered">
+    <div class="stack-lg" style="width: 680px; max-width: 100%;">
+
+      <div class="row between term-xs dim">
+        <span>CH://invitation</span>
+        <span class="glitch">claim.example.com // transmission 002</span>
+        <span>OPERATIVE</span>
+      </div>
+
+      <div class="term" style="min-height: 200px;">
+        <div class="term-line"><span class="ghost">&gt;</span> <span class="chrome"><%= inviter_alias %></span> burned a slot on you.</div>
+        <div class="term-line dim">&nbsp;&nbsp;they only get a handful. they spent one here.</div>
+        <div class="term-line">&nbsp;</div>
+        <div class="term-line"><span class="ghost">&gt;</span> destination · <span class="chrome"><%= invitee_email %></span></div>
+        <% if (note) { %>
+          <div class="term-line">&nbsp;</div>
+          <div class="term-line dim">&nbsp;&nbsp;they wrote: <span class="amber">"<%= note %>"</span></div>
+        <% } %>
+        <div class="term-line">&nbsp;</div>
+        <div class="term-line"><span class="ghost">&gt;</span> single-use token · pick a handle to claim it.</div>
+      </div>
+
+      <form method="post" action="/claim/<%= token %>" class="stack" style="gap: 24px;">
+        <div class="term-input-line">
+          <span class="prompt glow">&gt; choose your handle:</span>
+          <input class="term-input glow"
+                 name="alias"
+                 placeholder="handle / alias"
+                 minlength="3" maxlength="20"
+                 pattern="[A-Za-z0-9_.\-]{3,20}"
+                 required autofocus>
+        </div>
+
+        <% if (message) { %>
+          <div class="term-sm warn">&gt; <%= message %></div>
+        <% } %>
+
+        <div class="row between" style="margin-top: 12px;">
+          <div class="term-sm dim" style="max-width: 420px; line-height: 1.6;">
+            handles are unique and stick. choose carefully.<br>
+            no real systems harmed · just puzzles.
+          </div>
+          <button type="submit" class="term-btn glow">[ claim slot ]</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+<script src="/static/recruit-flow.js"></script>
+</body>
+</html>

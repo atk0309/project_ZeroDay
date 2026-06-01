@@ -1,0 +1,193 @@
+<!--
+  EMAIL TEMPLATES — single workspace for every operator-editable copy block.
+  All seven cards POST to /admin/players/templates as one form. Each card has
+  a live (client-side) preview that renders against sample tokens, plus
+  [ preview ] (server-rendered, mirrors the actual send path) and
+  [ send test ] (real round-trip to the admin email).
+-->
+<%
+  function val(key, def) {
+    var raw = settings[key];
+    if (typeof raw === 'string' && raw.length > 0) return raw;
+    return (typeof def === 'string') ? def : '';
+  }
+  // Defaults mirror app/src/lib/content.ts. Only used to pre-fill the
+  // textarea when settings is unset (which only happens before
+  // seedDefaults() runs — should be rare).
+  var DEF_RECRUIT_BODY = '> {alias},\n\nwe watch the lurkers. the ones who open view-source on ordinary pages.\nthe ones who notice the cursor blink twice. you are one of them.\n\nthe key below is keyed to your silhouette. it will not work for anyone\nelse, and it decays in {expires_in}. one shot.\n\npast the door: nineteen trials, in order, one at a time. one machine\nworth breaking at the end. you know the one.\n\n→ decryption key (single-use)\n   {magic_link}\n\n— m.\n  on behalf of the ones who wait.';
+  var DEF_LOBBY = '[wopr]   warming up. coffee at 03:14:22.\n[wopr]   nodes #1, #4, #7 online.\n[wopr]   trinity is reading your packets.\n[wopr]   morpheus offered a choice. you took the right one.\n[wopr]   the gibson is sleeping. she will wake.\n[wopr]   a cursor blinks somewhere in the dark.\n[wopr]   T-MINUS {cd}.';
+  var DEF_INV_SUBJ = '[ZeroDay] {inviter_alias} pulled you in';
+  var DEF_INV_BODY = '> operative,\n\n{inviter_alias} cleared a slot for you. they only get two, and they\nspent one on you.\n\npast the door: nineteen trials, in order. one machine worth breaking\nat the end.\n\n→ claim your slot (single-use, decays in {expires_in})\n   {claim_link}\n\n{note_block}— m.\n  on behalf of the ones who wait.';
+  var DEF_AC_SUBJ = '[ZeroDay] welcome, {alias}';
+  var DEF_AC_BODY = '> {alias},\n\nyou\'re in. slot #{slot_number}. recruiter · {inviter_alias}.\n\npast the door: nineteen trials, in order, one at a time. one machine\nworth breaking at the end. you know the one.\n\n→ enter the lobby\n   {lobby_link}\n\n— m.\n  on behalf of the ones who wait.';
+  var DEF_RR_SUBJ = '[ZeroDay] {requester_alias} requests an extra slot';
+  var DEF_RR_BODY = '> admin,\n\n{requester_alias} has used both of their invites and is asking for one\nmore.\n\n  requester · {requester_alias} <{requester_email}>\n  for       · {invitee_email}\n  reason    · {reason}\n\ndecide it here:\n   {admin_link}\n\n— wopr';
+  var DEF_RA_SUBJ = '[ZeroDay] request approved · invite dispatched';
+  var DEF_RA_BODY = '> {requester_alias},\n\nyour request for an extra slot was approved.\n\n{invitee_email} just got the invite. no further action from you.\n\n{note_block}→ back to the lobby\n   {lobby_link}\n\n— m.\n  on behalf of the ones who wait.';
+  var DEF_RD_SUBJ = '[ZeroDay] request denied';
+  var DEF_RD_BODY = '> {requester_alias},\n\nyour request for an extra slot was denied.\n\n  reason · {note}\n\nno hard feelings · keep grinding the trials.\n\n— the admin.';
+
+  var savedFlag = (typeof saved !== 'undefined' && saved);
+  var mailReady = (typeof mailConfigured !== 'undefined' && mailConfigured);
+
+  var cards = [
+    { id: 'recruit',          num: '01', label: 'recruit',           trigger: 'red-pill signup',           wired: true,  to: 'invitee',
+      tokens: '{alias} · {magic_link} · {expires_in}',
+      subjectKey: null, subjectFixed: '[ZeroDay] transmission received — {expires_in}',
+      bodyKey: 'recruit_email_body',                bodyDefault: DEF_RECRUIT_BODY },
+    { id: 'invite',           num: '02', label: 'invite',            trigger: 'operator issues invite',     wired: true,  to: 'invitee',
+      tokens: '{inviter_alias} · {claim_link} · {expires_in} · {note_block}',
+      subjectKey: 'invite_email_subject',           subjectDefault: DEF_INV_SUBJ,
+      bodyKey: 'invite_email_body',                 bodyDefault: DEF_INV_BODY },
+    { id: 'accept_confirm',   num: '03', label: 'accept-confirm',    trigger: 'invitee claims slot',        wired: true,  to: 'invitee',
+      tokens: '{alias} · {slot_number} · {inviter_alias} · {lobby_link}',
+      subjectKey: 'accept_confirm_email_subject',   subjectDefault: DEF_AC_SUBJ,
+      bodyKey: 'accept_confirm_email_body',         bodyDefault: DEF_AC_BODY },
+    { id: 'request_received', num: '04', label: 'request-received',  trigger: 'operator asks for extra slot', wired: true, to: 'admin',
+      tokens: '{requester_alias} · {requester_email} · {invitee_email} · {reason} · {admin_link}',
+      subjectKey: 'request_received_email_subject', subjectDefault: DEF_RR_SUBJ,
+      bodyKey: 'request_received_email_body',       bodyDefault: DEF_RR_BODY },
+    { id: 'request_approved', num: '05', label: 'request-approved',  trigger: 'admin approves request',     wired: true,  to: 'requester',
+      tokens: '{requester_alias} · {invitee_email} · {note} · {note_block} · {lobby_link}',
+      subjectKey: 'request_approved_email_subject', subjectDefault: DEF_RA_SUBJ,
+      bodyKey: 'request_approved_email_body',       bodyDefault: DEF_RA_BODY },
+    { id: 'request_denied',   num: '06', label: 'request-denied',    trigger: 'admin denies request',       wired: true,  to: 'requester',
+      tokens: '{requester_alias} · {invitee_email} · {note} · {lobby_link}',
+      subjectKey: 'request_denied_email_subject',   subjectDefault: DEF_RD_SUBJ,
+      bodyKey: 'request_denied_email_body',         bodyDefault: DEF_RD_BODY }
+  ];
+%>
+<form method="post" action="/admin/players/templates" data-templates-form>
+  <div class="section">
+    <div class="section-head">
+      <span class="title"><span class="led"></span>email templates · operator-editable</span>
+      <span class="meta">
+        <% if (savedFlag) { %><span class="chrome">✓ saved</span><% } %>
+        <span><b><%= cards.length %></b> templates</span>
+        <span>+ lobby flavor</span>
+      </span>
+    </div>
+    <div style="padding:14px 22px 4px">
+      <div class="dim" style="font-size:11.5px;line-height:1.7;letter-spacing:0.02em;border-left:2px solid var(--phosphor-dim);padding-left:12px;margin-bottom:8px">
+        every email the system sends. tokens like <span class="chrome">{alias}</span> are replaced at send time.<br/>
+        live preview updates as you type · <span class="chrome">[ preview ]</span> renders the saved template via the same path the real send uses · <span class="chrome">[ send test ]</span> dispatches it to the admin email<%= mailReady ? '' : ' (mail not configured — disabled)' %>.
+      </div>
+    </div>
+  </div>
+
+  <% cards.forEach(function(c) {
+    var subjectVal = c.subjectKey ? val(c.subjectKey, c.subjectDefault) : '';
+    var bodyVal = val(c.bodyKey, c.bodyDefault);
+    var sampleTo = c.to === 'admin' ? 'admin@example.com' : c.to === 'requester' ? 'a.burn@example.net' : 'd.hall@example.com';
+  %>
+    <div class="section" data-template-card data-template-key="<%= c.id %>">
+      <div class="section-head">
+        <span class="title">
+          <span class="dim" style="font-size:11px;letter-spacing:0.16em"><%= c.num %> ·</span>
+          <%= c.label %>
+          <span class="chrome" style="font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;margin-left:10px">live</span>
+        </span>
+        <span class="meta">
+          <span><%= c.trigger %></span>
+          <span class="dim" style="font-size:10.5px">tokens · <%= c.tokens %></span>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--rule)">
+        <div style="padding:14px 22px;border-right:1px solid var(--rule)">
+          <% if (c.subjectKey) { %>
+            <div class="fld" style="margin-bottom:10px">
+              <div class="l" style="font-size:10px;letter-spacing:0.14em">subject</div>
+              <div class="v">
+                <input class="input" type="text" name="<%= c.subjectKey %>" value="<%= subjectVal %>"
+                       data-template-input="subject" />
+              </div>
+            </div>
+          <% } else { %>
+            <div class="dim" style="font-size:10.5px;letter-spacing:0.06em;margin-bottom:10px">subject (fixed) · <span class="chrome"><%= c.subjectFixed %></span></div>
+          <% } %>
+          <div class="fld">
+            <div class="l" style="font-size:10px;letter-spacing:0.14em">body</div>
+            <div class="v">
+              <textarea class="input" name="<%= c.bodyKey %>" rows="14"
+                        data-template-input="body"><%= bodyVal %></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+            <button type="button" class="btn sm" data-template-preview>[ preview ]</button>
+            <button type="button" class="btn sm" data-template-test-send <%= mailReady ? '' : 'disabled title="mail not configured"' %>>[ send test ]</button>
+            <span class="dim" data-template-status style="font-size:10.5px;letter-spacing:0.04em"></span>
+          </div>
+        </div>
+        <div style="padding:14px 22px;background:rgba(0,0,0,0.25)" data-template-pane>
+          <h5 style="margin:0 0 8px;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--phosphor-faint)">as delivered · sample tokens</h5>
+          <div style="border:1px solid var(--rule);background:rgba(0,0,0,0.45);font-size:11.5px;line-height:1.65">
+            <div style="padding:10px 14px;border-bottom:1px dashed var(--rule);color:var(--phosphor-faint);letter-spacing:0.04em;font-size:10.5px">
+              <div><span style="opacity:0.6">from:</span> <span class="chrome" data-template-from>recruit@example.com</span></div>
+              <div><span style="opacity:0.6">to:</span> <span class="chrome" data-template-to><%= sampleTo %></span></div>
+              <div><span style="opacity:0.6">subj:</span> <span class="chrome" data-template-subject>…</span></div>
+            </div>
+            <pre style="white-space:pre-wrap;margin:0;padding:14px 18px;font-family:inherit;font-size:11.5px;line-height:1.65;color:var(--phosphor)" data-template-body>loading…</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+
+  <!-- Lobby flavor card · separate aesthetic since it isn't an email. -->
+  <%
+    var lobbyVal = val('lobby_flavor', DEF_LOBBY);
+  %>
+  <div class="section" data-template-card data-template-key="lobby_flavor" data-template-kind="lobby">
+    <div class="section-head">
+      <span class="title">
+        <span class="dim" style="font-size:11px;letter-spacing:0.16em">07 ·</span>
+        lobby flavor
+        <span class="chrome" style="font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;margin-left:10px">live</span>
+      </span>
+      <span class="meta">
+        <span>prelaunch lobby tail -f</span>
+        <span class="dim" style="font-size:10.5px">tokens · {cd}</span>
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--rule)">
+      <div style="padding:14px 22px;border-right:1px solid var(--rule)">
+        <div class="fld">
+          <div class="l" style="font-size:10px;letter-spacing:0.14em">lines (one per line)</div>
+          <div class="v">
+            <textarea class="input" name="lobby_flavor" rows="14" data-template-input="body"><%= lobbyVal %></textarea>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 22px;background:rgba(0,0,0,0.5)" data-template-pane>
+        <h5 style="margin:0 0 8px;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--phosphor-faint)">prelaunch lobby · sample countdown 02d 14h 33m</h5>
+        <pre style="white-space:pre-wrap;margin:0;padding:14px 18px;font-family:inherit;font-size:11.5px;line-height:1.7;color:var(--phosphor-dim);border:1px solid var(--rule);background:rgba(0,0,0,0.7)" data-template-body>loading…</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div style="padding:18px 22px;display:flex;gap:12px;align-items:center;justify-content:flex-end">
+      <span class="dim" style="font-size:10.5px;letter-spacing:0.04em">writes invalidate the 30s settings cache · next send picks up the change immediately</span>
+      <button class="btn solid" type="submit">[ save all templates ]</button>
+    </div>
+  </div>
+</form>
+
+<!-- Server-rendered preview modal · populated by admin.js -->
+<div data-template-modal style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.78);align-items:flex-start;justify-content:center;padding:60px 20px;overflow:auto">
+  <div style="max-width:780px;width:100%;background:var(--bg);border:1px solid var(--phosphor-dim);box-shadow:0 0 30px rgba(0,255,170,0.18);font-size:12.5px">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--rule-strong);background:rgba(0,0,0,0.5);display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--chrome)">server-rendered preview · <span data-template-modal-key>—</span></div>
+      <button type="button" class="btn sm" data-template-modal-close>[ close ]</button>
+    </div>
+    <div style="padding:18px 22px;color:var(--phosphor-dim);line-height:1.7">
+      <div style="border-bottom:1px dashed var(--rule);padding-bottom:10px;margin-bottom:14px;font-size:10.5px;letter-spacing:0.04em">
+        <div><span style="opacity:0.6">from:</span> <span class="chrome" data-template-modal-from>—</span></div>
+        <div><span style="opacity:0.6">to:</span> <span class="chrome" data-template-modal-to>—</span></div>
+        <div><span style="opacity:0.6">subj:</span> <span class="chrome" data-template-modal-subject>—</span></div>
+      </div>
+      <pre style="white-space:pre-wrap;margin:0;font-family:inherit;font-size:12px;line-height:1.7;color:var(--phosphor)" data-template-modal-body>—</pre>
+      <div class="dim" style="margin-top:14px;font-size:10.5px;letter-spacing:0.04em">rendered server-side via the same code path used for real sends. matches what real recipients see modulo the to/from values.</div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeroday // session closed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/recruit-flow.css">
+</head>
+<body class="recruit-flow">
+<%
+  const aliasIn = (typeof alias !== 'undefined' && alias) ? String(alias) : '';
+  const safeAlias = aliasIn.replace(/[<>&"']/g, function (c) {
+    return { '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+  const aliasFirst = safeAlias || 'friend';
+  const aliasReturn = safeAlias || 'operator';
+
+  const firstVisit = [
+    '<span class="ghost">&gt;</span> safe travels, ' + aliasFirst + '.',
+    '<span class="ghost">&gt;</span> we\'ve forgotten you already.',
+    '',
+    '<span class="chrome">thank you for stopping by. this was a routine compliance audit.</span>',
+    '<span class="dim">your visit has been logged as \'not of interest\'.</span>'
+  ];
+  const secondVisit = [
+    '<span class="ghost">&gt;</span> ' + aliasReturn + '.',
+    '<span class="ghost">&gt;</span> back already.',
+    '',
+    '<span class="chrome">we told you we\'d forget. we lied. a little.</span>',
+    '<span class="dim">curiosity is not something you put back in its box.</span>',
+    '',
+    '<span class="chrome warn">the offer hasn\'t expired. it just gets harder to find the door.</span>'
+  ];
+  const thirdPlus = [
+    '<span class="ghost">&gt;</span> visit logged.',
+    '',
+    '<span class="chrome">you keep coming back. that counts for something.</span>',
+    '<span class="chrome warn">most people only think about it once.</span>',
+    '',
+    '<span class="dim">the pill is still on the tray. it does not go stale.</span>'
+  ];
+%>
+<div class="crt-stage crt-flicker" data-flow="goodbye">
+  <div class="screen centered">
+    <div class="stack-lg" style="width: 620px; max-width: 100%;">
+
+      <div class="row between term-xs dim">
+        <span class="cold">CH://CLOSED</span>
+        <span>session.example.com // blue pathway</span>
+        <span data-visit-badge>VISIT #001</span>
+      </div>
+
+      <div class="term" style="min-height: 200px;">
+        <div data-visit="1" class="is-hidden">
+          <div class="typed-block"
+               data-no-auto="1"
+               data-speed="22"
+               data-line-delay="220"
+               data-lines="<%= JSON.stringify(firstVisit) %>"></div>
+        </div>
+        <div data-visit="2" class="is-hidden">
+          <div class="typed-block"
+               data-no-auto="1"
+               data-speed="22"
+               data-line-delay="220"
+               data-lines="<%= JSON.stringify(secondVisit) %>"></div>
+        </div>
+        <div data-visit="3+" class="is-hidden">
+          <div class="typed-block"
+               data-no-auto="1"
+               data-speed="22"
+               data-line-delay="220"
+               data-lines="<%= JSON.stringify(thirdPlus) %>"></div>
+        </div>
+      </div>
+
+      <div class="row goodbye-actions is-hidden" data-goodbye-actions="first"
+           style="justify-content: flex-end;">
+        <span class="term-sm dim">you may close this tab.</span>
+      </div>
+
+      <div class="row goodbye-actions is-hidden" data-goodbye-actions="returning">
+        <a href="/recruit" class="term-btn warn glow" style="text-decoration: none;">[ reconsider ]</a>
+        <button type="button" class="term-btn" data-action="forget">[ forget again ]</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="/static/recruit-flow.js"></script>
+</body>
+</html>

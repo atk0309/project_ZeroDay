@@ -1,0 +1,349 @@
+/* ───────────────────────────────────────────────────────────────
+   ZeroDay ARG — recruit flow
+   CRT terminal aesthetic. Used by /recruit, /recruit (pill),
+   recruit step2 (boot+email), and the blue-pill goodbye.
+─────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg:             #050806;
+  --bg-deep:        #02030a;
+  --phosphor:       oklch(82% 0.18 145);
+  --phosphor-dim:   oklch(82% 0.16 145);
+  --phosphor-ghost: oklch(60% 0.12 145);
+  --warn:           oklch(68% 0.22 25);
+  --cold:           oklch(72% 0.14 230);
+  --chrome:         oklch(90% 0.005 145);
+  --scan-opacity:   0.35;
+  --glow:           6px;
+  --type-speed:     22ms;
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+html, body { height: 100%; margin: 0; background: #000; }
+* { box-sizing: border-box; }
+
+body.recruit-flow {
+  color: var(--phosphor);
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── CRT stage ─────────────────────────────────────────────── */
+.crt-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center,
+              var(--bg) 0%,
+              var(--bg-deep) 80%,
+              #000 100%);
+  overflow: hidden;
+  isolation: isolate;
+}
+.crt-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0px,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,var(--scan-opacity)) 3px,
+    rgba(0,0,0,var(--scan-opacity)) 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
+  mix-blend-mode: multiply;
+}
+.crt-stage::after {
+  content: "";
+  position: absolute;
+  inset: -2%;
+  background: radial-gradient(ellipse at center,
+              transparent 55%,
+              rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  z-index: 9999;
+}
+.crt-flicker { animation: flicker 6s infinite steps(2, end); }
+@keyframes flicker {
+  0%, 94%, 100% { opacity: 1; }
+  95% { opacity: 0.88; }
+  96% { opacity: 1; }
+  97% { opacity: 0.94; }
+  98% { opacity: 1; }
+}
+
+/* ── Glow utilities ────────────────────────────────────────── */
+.glow {
+  text-shadow:
+    0 0 calc(var(--glow) * 0.3) currentColor,
+    0 0 var(--glow) color-mix(in oklch, currentColor, transparent 30%),
+    0 0 calc(var(--glow) * 2) color-mix(in oklch, currentColor, transparent 70%);
+}
+.glow-strong {
+  text-shadow:
+    0 0 calc(var(--glow) * 0.5) currentColor,
+    0 0 calc(var(--glow) * 1.5) currentColor,
+    0 0 calc(var(--glow) * 3) color-mix(in oklch, currentColor, transparent 60%);
+}
+
+/* ── Type scale ────────────────────────────────────────────── */
+.term {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--phosphor);
+}
+.term-lg  { font-size: 22px; line-height: 1.4; }
+.term-xl  { font-size: 32px; line-height: 1.25; letter-spacing: -0.01em; font-weight: 500; }
+.term-xxl { font-size: 48px; line-height: 1.1;  letter-spacing: -0.02em; font-weight: 500; }
+.term-sm  { font-size: 12px; line-height: 1.5; }
+.term-xs  { font-size: 10.5px; line-height: 1.5; letter-spacing: 0.05em; text-transform: uppercase; }
+
+.dim    { color: var(--phosphor-dim); }
+.ghost  { color: var(--phosphor-ghost); }
+.chrome { color: var(--chrome); }
+.warn   { color: var(--warn); }
+.cold   { color: var(--cold); }
+.ok     { color: var(--phosphor); }
+
+/* Slim caret for typed-block in-progress line */
+.caret-slim::after {
+  content: "_";
+  margin-left: 2px;
+  animation: blink 1.06s infinite steps(2, end);
+}
+@keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+/* ── Inputs ────────────────────────────────────────────────── */
+.term-input {
+  background: transparent;
+  border: none;
+  color: var(--phosphor);
+  font: inherit;
+  font-size: 18px;
+  outline: none;
+  width: 100%;
+  padding: 6px 0;
+  caret-color: var(--phosphor);
+  text-shadow: 0 0 var(--glow) color-mix(in oklch, currentColor, transparent 40%);
+}
+.term-input::placeholder { color: var(--phosphor-ghost); }
+.term-input-line {
+  border-bottom: 1px solid var(--phosphor-dim);
+  padding-bottom: 2px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.term-input-line:focus-within { border-bottom-color: var(--phosphor); }
+.prompt { color: var(--phosphor-dim); font-size: 14px; }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.term-btn {
+  font-family: inherit;
+  background: transparent;
+  color: var(--phosphor);
+  border: 1px solid var(--phosphor-dim);
+  padding: 12px 28px;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-shadow: 0 0 var(--glow) color-mix(in oklch, currentColor, transparent 40%);
+}
+.term-btn:hover:not(:disabled) {
+  border-color: var(--phosphor);
+  background: color-mix(in oklch, var(--phosphor), transparent 92%);
+  box-shadow: 0 0 16px color-mix(in oklch, var(--phosphor), transparent 75%);
+}
+.term-btn:active:not(:disabled) { transform: translateY(1px); }
+.term-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.term-btn.warn  { color: var(--warn); border-color: color-mix(in oklch, var(--warn), transparent 50%); }
+.term-btn.warn:hover  { border-color: var(--warn); background: color-mix(in oklch, var(--warn), transparent 92%); }
+.term-btn.cold  { color: var(--cold); border-color: color-mix(in oklch, var(--cold), transparent 50%); }
+.term-btn.cold:hover  { border-color: var(--cold); background: color-mix(in oklch, var(--cold), transparent 92%); }
+.ghost-btn {
+  border-color: var(--phosphor-ghost) !important;
+  color: var(--phosphor-dim) !important;
+}
+.ghost-btn:hover {
+  border-color: var(--phosphor-dim) !important;
+  color: var(--phosphor) !important;
+}
+
+/* ── Pill cards ────────────────────────────────────────────── */
+.pill-card {
+  position: relative;
+  border: 1px solid var(--phosphor-ghost);
+  padding: 32px 28px;
+  background: rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  width: 100%;
+}
+.pill-card.red:hover {
+  border-color: var(--warn);
+  background: color-mix(in oklch, var(--warn), transparent 94%);
+  box-shadow: 0 0 40px color-mix(in oklch, var(--warn), transparent 75%) inset,
+              0 0 30px color-mix(in oklch, var(--warn), transparent 85%);
+}
+.pill-card.blue:hover {
+  border-color: var(--cold);
+  background: color-mix(in oklch, var(--cold), transparent 94%);
+  box-shadow: 0 0 40px color-mix(in oklch, var(--cold), transparent 75%) inset,
+              0 0 30px color-mix(in oklch, var(--cold), transparent 85%);
+}
+.pill-card .pill-confirm { opacity: 0; transition: opacity 0.2s; margin-top: auto; }
+.pill-card:hover .pill-confirm { opacity: 1; }
+
+.pill-glyph {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.pill-glyph.red {
+  background: radial-gradient(circle at 35% 30%,
+              color-mix(in oklch, var(--warn), white 30%) 0%,
+              var(--warn) 60%,
+              color-mix(in oklch, var(--warn), black 50%) 100%);
+  box-shadow: 0 0 20px color-mix(in oklch, var(--warn), transparent 50%);
+  color: #2a0508;
+}
+.pill-glyph.blue {
+  background: radial-gradient(circle at 35% 30%,
+              color-mix(in oklch, var(--cold), white 30%) 0%,
+              var(--cold) 60%,
+              color-mix(in oklch, var(--cold), black 50%) 100%);
+  box-shadow: 0 0 20px color-mix(in oklch, var(--cold), transparent 50%);
+  color: #04142a;
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+.screen {
+  position: absolute;
+  inset: 0;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.screen.centered { justify-content: center; align-items: center; }
+.stack    { display: flex; flex-direction: column; gap: 16px; }
+.stack-lg { display: flex; flex-direction: column; gap: 32px; }
+.row      { display: flex; gap: 24px; align-items: center; }
+.row.between { justify-content: space-between; }
+
+/* ── Chrome bar ────────────────────────────────────────────── */
+.chrome-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--phosphor-ghost);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--phosphor-dim);
+  background: rgba(0,0,0,0.6);
+  flex-shrink: 0;
+}
+.chrome-bar .dots { display: flex; gap: 6px; }
+.chrome-bar .dot  { width: 8px; height: 8px; border-radius: 50%; background: var(--phosphor-ghost); }
+.chrome-bar .dot.live { background: var(--phosphor); box-shadow: 0 0 6px var(--phosphor); }
+.chrome-bar .row  { gap: 16px; }
+.chrome-bar .row.right { gap: 20px; }
+
+/* ── Animations ────────────────────────────────────────────── */
+.fade-in { animation: fadeIn 0.45s ease both; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.glitch { animation: glitch 3.2s infinite; }
+@keyframes glitch {
+  0%, 96%, 100% { transform: none; }
+  96.5% { transform: translate(1px, 0) skewX(-2deg); }
+  97%   { transform: translate(-1px, 0) skewX(2deg); }
+  97.5% { transform: none; }
+}
+
+/* ── ASCII blocks ──────────────────────────────────────────── */
+.ascii {
+  font-family: "IBM Plex Mono", monospace;
+  white-space: pre;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+/* ── Boot + email screen ───────────────────────────────────── */
+.boot-lines {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.boot-lines .ok   { color: var(--phosphor); }
+.boot-lines .warn { color: var(--warn); }
+.boot-lines .dim  { color: var(--phosphor-dim); }
+
+.email-card {
+  border: 1px solid var(--phosphor-ghost);
+  padding: 28px 32px;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.email-headers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--phosphor-ghost);
+  padding-bottom: 12px;
+}
+.email-key-block {
+  border: 1px solid var(--phosphor-dim);
+  background: rgba(0,0,0,0.6);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  word-break: break-all;
+}
+.email-key-link {
+  color: var(--phosphor-dim);
+  text-decoration: none;
+  font-size: 12px;
+}
+.email-key-link strong { color: var(--chrome); font-weight: 500; }
+.is-hidden { display: none !important; }
+
+/* ── Goodbye action row ────────────────────────────────────── */
+.goodbye-actions { gap: 16px; margin-top: 20px; }
+
+/* ── Scrollbars ────────────────────────────────────────────── */
+.screen::-webkit-scrollbar       { width: 8px; }
+.screen::-webkit-scrollbar-track { background: transparent; }
+.screen::-webkit-scrollbar-thumb { background: var(--phosphor-ghost); border-radius: 0; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .screen { padding: 24px 20px; }
+  .pill-cards { flex-direction: column; }
+}

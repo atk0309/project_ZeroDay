@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>setup — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+<%
+  function localDt(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toISOString().slice(0,16); } catch (e) { return ''; }
+  }
+  var section = (typeof active !== 'undefined' && active) ? active : 'timing';
+  var phaseLabel = (typeof phase !== 'undefined' && phase) ? phase : 'uninitialized';
+  var savedFlash = (typeof savedFlash !== 'undefined' && savedFlash) ? savedFlash : '';
+  var sectionStatuses = {
+    timing:   settings.launch_at && settings.end_at ? 'ok' : 'todo',
+    review:   (settings.launch_at && settings.end_at && mailConfigured) ? 'ok' : 'todo'
+  };
+  var sections = [
+    { id: 'timing',  num: '01', label: 'game timing',  subtitle: 'launch + end timestamps' },
+    { id: 'review',  num: '02', label: 'review & arm', subtitle: 'verify and lock the game' }
+  ];
+%>
+<div class="crt-stage">
+  <div class="setup-shell">
+    <aside class="setup-nav">
+      <div class="header">
+        <div class="crumb">/admin/setup</div>
+        <h2>launch checklist</h2>
+        <div style="font-size:11px;color:var(--phosphor-dim);letter-spacing:0.04em;line-height:1.65;margin-top:8px">
+          two steps to arm the game.<br/>changes write through to <span class="dim">app_settings</span>.
+        </div>
+        <div style="font-size:10px;color:var(--phosphor-faint);letter-spacing:0.1em;line-height:1.6;margin-top:14px;padding-top:12px;border-top:1px dashed var(--rule);text-transform:uppercase">
+          account ops · <a href="/admin/account" style="color:var(--phosphor-dim);text-decoration:underline">password + mail ↗</a><br/>
+          email + lobby copy · <a href="/admin/players?tab=emails" style="color:var(--phosphor-dim);text-decoration:underline">templates ↗</a>
+        </div>
+      </div>
+      <% sections.forEach(function(s) {
+        var status = sectionStatuses[s.id] || 'todo';
+        var sym = status === 'ok' ? '✓' : status === 'warn' ? '!' : '◌';
+      %>
+        <a class="setup-nav-item <%= section === s.id ? 'active' : '' %>" href="/admin/setup?section=<%= s.id %>">
+          <span class="num"><%= s.num %></span>
+          <div>
+            <div><%= s.label %></div>
+            <div style="font-size:9.5px;color:var(--phosphor-faint);letter-spacing:0.06em;text-transform:lowercase;margin-top:2px"><%= s.subtitle %></div>
+          </div>
+          <span class="status <%= status %>"><%= sym %></span>
+        </a>
+      <% }); %>
+      <div style="padding:24px 24px 0;border-top:1px solid var(--rule);margin-top:16px">
+        <a class="btn sm" href="/admin">[ ← dashboard ]</a>
+      </div>
+    </aside>
+
+    <div class="setup-page">
+      <% if (section === 'timing') { %>
+        <div class="setup-page-head">
+          <div>
+            <div class="crumb">01 · GAME TIMING</div>
+            <h1>set the d-day clock</h1>
+            <div class="desc">launch_at flips the game from prelaunch to live. end_at freezes the leaderboard and locks trial 19. both are utc-stored, displayed in your local tz.</div>
+          </div>
+        </div>
+        <form method="post" action="/admin/setup/timing" class="setup-page-body" style="display:block">
+          <div style="display:grid;grid-template-columns:1fr 320px;gap:36px;align-items:flex-start">
+            <div>
+              <div class="fld">
+                <div class="l">launch_at <span class="req">*</span>
+                  <span class="hint">when the gibson goes live · trial 1 unlocks for all recruited operators</span>
+                </div>
+                <div class="v">
+                  <input class="input" type="datetime-local" name="launch_at" required value="<%= localDt(settings.launch_at) %>" />
+                  <div class="fld-help">stored utc</div>
+                </div>
+              </div>
+              <div class="fld">
+                <div class="l">end_at <span class="req">*</span>
+                  <span class="hint">leaderboard freezes · trial 19 locks forever</span>
+                </div>
+                <div class="v">
+                  <input class="input" type="datetime-local" name="end_at" required value="<%= localDt(settings.end_at) %>" />
+                  <div class="fld-help">stored utc</div>
+                </div>
+              </div>
+              <div class="fld">
+                <div class="l">timezone label
+                  <span class="hint">cosmetic · displayed in operator hub footer</span>
+                </div>
+                <div class="v">
+                  <input class="input" name="timezone" value="UTC" />
+                </div>
+              </div>
+              <% if (message) { %>
+                <div class="toast warn" style="position:static;margin-top:8px"><%= message %></div>
+              <% } %>
+            </div>
+            <aside class="preview">
+              <h5>resolved phase machine</h5>
+              <pre>now      = <%= new Date().toISOString().slice(0,16).replace('T',' ') %>
+launch   = <%= settings.launch_at || '—' %>
+end      = <%= settings.end_at    || '—' %>
+
+phase()
+├─ if now < launch  → prelaunch
+├─ if now < end     → live
+└─ else             → frozen</pre>
+              <div style="margin-top:12px">
+                <h5>current resolution</h5>
+                <span class="phase-pill <%= phaseLabel === 'uninitialized' ? 'uninit' : phaseLabel %>">
+                  <span class="led"></span><%= phaseLabel %>
+                </span>
+              </div>
+            </aside>
+          </div>
+          <div class="save-bar">
+            <span class="saved-msg <%= savedFlash === 'timing' ? 'fade-out' : '' %>" style="opacity:<%= savedFlash === 'timing' ? 1 : 0 %>">
+              <%= savedFlash === 'timing' ? '✓ ' + (message || 'saved') : '' %>
+            </span>
+            <div style="display:flex;gap:10px">
+              <button class="btn solid" type="submit">[ save timing ]</button>
+            </div>
+          </div>
+        </form>
+
+      <% } else if (section === 'review') { %>
+        <%
+          var authoredList = (typeof authoredIds !== 'undefined' && Array.isArray(authoredIds)) ? authoredIds : [];
+          var totalCh = (typeof totalChallenges !== 'undefined' && totalChallenges) ? totalChallenges : 19;
+          var authoredCount = authoredList.length;
+          var allAuthored = authoredCount >= totalCh;
+          var authoredPreview = authoredList.slice(0, 3).join(', ');
+          if (authoredCount > 3) authoredPreview += ', +' + (authoredCount - 3) + ' more';
+          var authoredValue = authoredCount + ' of ' + totalCh + (authoredPreview ? ' (' + authoredPreview + ')' : '');
+          var gk = (typeof gibsonKey !== 'undefined' && gibsonKey) ? gibsonKey : { wired: 0, total: 3, parts: [], pendingOrdinals: [], wiredOrdinals: [] };
+          var gkAllWired = gk.wired >= gk.total;
+          var gkChallengeRefs = (gk.parts || []).map(function(p) { return p.ordinal ? '#' + p.ordinal : '?'; }).join(', ');
+          var gkValue = gk.wired + ' of ' + gk.total + ' wired (' + gkChallengeRefs + ')';
+          var gkNote;
+          if (gkAllWired) {
+            gkNote = 'all fragments live · final challenge can assemble';
+          } else if (gk.wired === 0) {
+            gkNote = 'final challenge cannot assemble';
+          } else {
+            gkNote = 'pending: ' + gk.pendingOrdinals.map(function(o) { return '#' + o; }).join(', ');
+          }
+          var items = [
+            { label: 'launch_at',         value: settings.launch_at || '—',   ok: !!settings.launch_at },
+            { label: 'end_at',            value: settings.end_at    || '—',   ok: !!settings.end_at },
+            { label: 'mail',              value: (settings.mail_provider || '—') + (mailConfigured ? ' · verified' : ' · unverified'), ok: !!mailConfigured, note: 'configured under /admin/account?section=mail' },
+            { label: 'email + lobby copy', value: settings.recruit_email_body ? 'saved' : 'empty', ok: !!settings.recruit_email_body, note: 'edited under /admin/players?tab=emails' },
+            { label: 'authored challenges', value: authoredValue, ok: allAuthored, note: allAuthored ? null : 'stub fallback handles the rest' },
+            { label: 'gibson key parts',  value: gkValue, ok: gkAllWired, note: gkNote }
+          ];
+          var ready = items.filter(function(i) { return i.ok; }).length;
+        %>
+        <div class="setup-page-head">
+          <div>
+            <div class="crumb">02 · REVIEW &amp; ARM</div>
+            <h1>lock the game</h1>
+            <div class="desc">pre-flight checklist. green items are required. amber items are non-blocking gaps you can fill while the game is live.</div>
+          </div>
+        </div>
+        <div class="setup-page-body">
+          <div class="kv" style="max-width:720px">
+            <% items.forEach(function(it) { %>
+              <div class="k"><%= it.label %></div>
+              <div class="v">
+                <span style="color:<%= it.ok ? 'var(--phosphor)' : 'var(--amber)' %>">
+                  <%= it.ok ? '✓' : '!' %> <%= it.value %>
+                </span>
+                <% if (it.note) { %>
+                  <div class="dim" style="font-size:10.5px;letter-spacing:0.04em;margin-top:2px"><%= it.note %></div>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+          <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center;max-width:720px">
+            <div class="dim" style="font-size:11.5px">
+              <span class="chrome"><%= ready %></span><span class="ghost">/<%= items.length %></span> · <%= ready === items.length ? 'all blocking checks green' : 'some checks pending' %>
+            </div>
+            <div style="display:flex;gap:10px">
+              <a class="btn" href="/admin">[ back to dashboard ]</a>
+              <button class="btn solid" disabled title="phase is computed from launch_at/end_at — no separate arm step">[ phase auto-armed ]</button>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script src="/static/admin.js"></script>
+</body>
+</html>

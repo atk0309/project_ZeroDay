@@ -1,0 +1,61 @@
+services:
+  caddy:
+    # Use the Cloudflare-DNS plugin variant. Build from the standard image with
+    # xcaddy if you prefer; the public lucaslorentz/caddy-docker-proxy or the
+    # caddy:builder pattern are both fine. This compose uses a prebuilt tag.
+    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "31337:31337"
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks: [zeroday]
+
+  app:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      DB_PATH: /data/zeroday.db
+      SESSION_SECRET: ${SESSION_SECRET:?must be set}
+      FLAG_SECRET: ${FLAG_SECRET:?must be set}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://hack.example.com}
+      # First-boot mail seeding (lib/mail.ts:seedFromEnv). These are read-once
+      # on startup and only written into app_settings when mail_provider is
+      # currently null. .env interpolation alone is NOT enough — Compose only
+      # uses .env to resolve ${VAR} substitutions, so each variable must be
+      # listed here to actually reach the Node process.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_RESEND_API_KEY: ${MAIL_RESEND_API_KEY:-}
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-}
+      MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+      MAIL_SMTP_PASS: ${MAIL_SMTP_PASS:-}
+      MAIL_SMTP_SECURE: ${MAIL_SMTP_SECURE:-}
+      GIT_ARCHAEOLOGY_SECRET_DIGEST: ${GIT_ARCHAEOLOGY_SECRET_DIGEST:-}
+    volumes:
+      - app_data:/data
+    networks: [zeroday]
+
+volumes:
+  caddy_data:
+  caddy_config:
+  app_data:
+
+networks:
+  zeroday:

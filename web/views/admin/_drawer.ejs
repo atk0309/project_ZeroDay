@@ -1,0 +1,50 @@
+<!-- Player detail drawer (hidden until clicked; populated by admin.js) -->
+<div id="drawer-root" hidden>
+  <div class="drawer-backdrop" data-close-drawer></div>
+  <aside class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="who-name glow-strong chrome" data-drawer-alias>—</div>
+        <div class="who-meta" data-drawer-meta></div>
+      </div>
+      <button class="btn sm" type="button" data-close-drawer>[ × close ]</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-section">
+        <h4>progression</h4>
+        <div class="prog-map" data-drawer-progmap></div>
+        <div class="dim" style="font-size:11px;margin-top:10px;line-height:1.6;letter-spacing:0.04em" data-drawer-progdesc></div>
+      </div>
+      <div class="drawer-section">
+        <h4>identity &amp; state</h4>
+        <div class="kv" data-drawer-kv></div>
+      </div>
+      <div class="drawer-section" data-drawer-integrity-section hidden>
+        <h4>integrity</h4>
+        <div data-drawer-integrity></div>
+      </div>
+      <div class="drawer-section">
+        <h4>recent attempts</h4>
+        <div class="atts" data-drawer-attempts></div>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn sm" type="button" disabled title="not yet wired">[ resend magic link ]</button>
+      <div class="hint-dd">
+        <button class="btn sm amber" type="button" data-drawer-hint-toggle>[ send hint ▾ ]</button>
+        <div class="hint-menu" data-drawer-hint-menu style="display:none;left:auto;right:0;bottom:100%;top:auto">
+          <% (typeof hintLevels !== 'undefined' ? hintLevels : [1,2,3,4,5]).forEach(function(lvl) {
+               var label = (typeof hintLabels !== 'undefined' && hintLabels) ? hintLabels[lvl] : '';
+               var cost = (typeof hintCosts !== 'undefined' && hintCosts) ? hintCosts[lvl] : 0;
+          %>
+            <button type="button" class="hm-item" data-drawer-hint="<%= lvl %>" style="background:transparent;border:none;width:100%;text-align:left;font:inherit;cursor:pointer;color:inherit"><span class="hm-tag">L<%= lvl %></span><span><%= label %></span><span class="hm-cost">-<%= cost %> pts</span></button>
+          <% }); %>
+        </div>
+      </div>
+      <button class="btn sm warn" type="button" data-drawer-skip>[ skip stage ]</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Toast stack (drawer + polling write here) -->
+<div class="toast-stack" id="toast-stack"></div>

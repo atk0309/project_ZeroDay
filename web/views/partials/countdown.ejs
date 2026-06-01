@@ -1,0 +1,17 @@
+<%
+  // Three states: prelaunch (counts down to launchAt), live (counts down to endAt), frozen (static).
+  const ph = typeof phase !== 'undefined' ? phase : null;
+  const target = ph === 'live' ? endAt : launchAt;
+  const label = ph === 'live' ? 'GIBSON GOES COLD IN' : (ph === 'frozen' ? 'LIGHTS OUT — TRANSMISSION ENDED' : 'GIBSON GOES LIVE IN');
+%>
+<div id="countdown" data-target="<%= target ?? '' %>" data-phase="<%= ph ?? 'unknown' %>" class="countdown phase-<%= ph %>">
+  <div class="cd-label"><%= label %></div>
+  <% if (ph !== 'frozen' && target) { %>
+    <div class="cd-digits">
+      <span data-cd="d">--</span>d
+      <span data-cd="h">--</span>h
+      <span data-cd="m">--</span>m
+      <span data-cd="s">--</span>s
+    </div>
+  <% } %>
+</div>

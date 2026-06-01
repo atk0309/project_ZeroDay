@@ -1,0 +1,234 @@
+<!-- INVITATIONS tab — live data bound from /admin/players (PR2). -->
+<%
+  var rows = (typeof inviteRows !== 'undefined' && Array.isArray(inviteRows)) ? inviteRows : [];
+  var stats = (typeof inviteStats !== 'undefined' && inviteStats) ? inviteStats : { sent: 0, pending: 0, accepted: 0, declined: 0, expired: 0, accept_rate: 0, awaiting_claim: 0, slots_in_pool: 0 };
+  var inviteLimit = (typeof inviteLimit !== 'undefined' && inviteLimit) ? inviteLimit : 2;
+  var inviteTtlLabel = (typeof inviteTtlLabel !== 'undefined' && inviteTtlLabel) ? inviteTtlLabel : '72h';
+  var slotsUsed = stats.pending + stats.accepted;
+  var stages = [
+    {k:'sent',     n: stats.sent,     c:'var(--phosphor-dim)'},
+    {k:'pending',  n: stats.pending,  c:'var(--amber)'},
+    {k:'accepted', n: stats.accepted, c:'var(--phosphor)'},
+    {k:'declined', n: stats.declined, c:'var(--warn)'},
+    {k:'expired',  n: stats.expired,  c:'var(--phosphor-faint)'}
+  ];
+  var maxStage = 1; stages.forEach(function(s){ if (s.n > maxStage) maxStage = s.n; });
+
+  function relAge(iso) {
+    if (!iso) return '—';
+    var diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return 'just now';
+    var h = Math.floor(diff / 3600000);
+    var m = Math.floor((diff / 60000) % 60);
+    if (h >= 24) return Math.floor(h/24) + 'd ago';
+    if (h > 0)   return h + 'h ago';
+    return m + 'm ago';
+  }
+%>
+<div class="phase-strip" style="grid-template-columns:1.4fr 1fr 1fr 1fr 1fr">
+  <div>
+    <div class="kpi-l">invitation funnel</div>
+    <div style="display:flex;gap:4px;align-items:flex-end;margin-top:12px;height:60px">
+      <% stages.forEach(function(s){ var h = Math.round((s.n / maxStage) * 40); %>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px">
+          <div style="height:40px;display:flex;align-items:flex-end;border:1px solid var(--rule);background:rgba(0,0,0,0.4)">
+            <% if (s.n > 0) { %><div style="width:100%;height:<%= h %>px;background:<%= s.c %>;opacity:0.7"></div><% } %>
+          </div>
+          <div style="font-size:9px;letter-spacing:0.1em;text-align:center;color:<%= s.c %>;text-transform:uppercase"><%= s.k %> <span class="chrome tabular"><%= s.n %></span></div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+  <div>
+    <div class="kpi-l">accept rate</div>
+    <div class="kpi-v" style="color:var(--phosphor)"><%= stats.sent > 0 ? stats.accept_rate : '—' %><span class="unit">%</span></div>
+    <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em"><%= stats.sent === 0 ? 'no invites sent yet' : (stats.accepted + ' of ' + (stats.sent - stats.pending) + ' decided') %></div>
+  </div>
+  <div>
+    <div class="kpi-l">awaiting claim</div>
+    <div class="kpi-v" style="color:var(--amber)"><%= stats.awaiting_claim %></div>
+    <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em"><%= stats.awaiting_claim === 0 ? 'none pending' : 'pending operators' %></div>
+  </div>
+  <div>
+    <div class="kpi-l">slots in pool</div>
+    <div class="kpi-v"><%= stats.slots_in_pool %></div>
+    <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em"><%= players.length %> ops × <%= inviteLimit %> · used <%= slotsUsed %></div>
+  </div>
+  <div style="justify-content:center">
+    <div class="kpi-l" style="margin-bottom:8px">admin override</div>
+    <button class="btn lg amber solid" type="button" data-invite-override-toggle style="width:100%">[ + invite operative ]</button>
+    <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em">bypasses operator quota</div>
+  </div>
+</div>
+
+<div class="section" data-invite-override-form hidden>
+  <div class="section-head">
+    <span class="title"><span class="led warn"></span>admin override · issue invitation</span>
+    <span class="meta"><span>bypasses 2-slot quota · audit-logged</span></span>
+  </div>
+  <div style="padding:14px 22px">
+    <form data-invite-override style="display:grid;grid-template-columns:200px 200px 1fr 1fr auto;gap:10px;align-items:end">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--phosphor-dim)">
+        on behalf of
+        <select class="input" name="inviter_id" data-inviter-select required style="font-size:11.5px;padding:5px 8px">
+          <option value="__custom__">— custom (free text) —</option>
+          <% (inviteOperators || []).forEach(function(op) { %>
+            <option value="<%= op.id %>">@<%= op.alias %> · #<%= op.id %></option>
+          <% }); %>
+        </select>
+      </label>
+      <label data-custom-alias-wrap style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber)">
+        custom inviter alias
+        <input class="input" name="inviter_alias_override" type="text" maxlength="40" placeholder="e.g. wopr"
+               style="font-size:11.5px;padding:5px 8px;border-color:var(--amber)" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--phosphor-dim)">
+        invitee email
+        <input class="input" name="invitee_email" type="email" required style="font-size:11.5px;padding:5px 8px" />
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--phosphor-dim)">
+        note (optional)
+        <input class="input" name="note" type="text" maxlength="240" style="font-size:11.5px;padding:5px 8px" />
+      </label>
+      <button class="btn solid amber" type="submit">[ issue ]</button>
+    </form>
+    <div data-invite-override-result class="dim" style="font-size:11px;margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <span class="title"><span class="led"></span>invitations · <%= rows.length %></span>
+    <span class="meta">
+      <span>signed tokens · ed25519</span>
+      <span><%= inviteTtlLabel %> ttl · slot returns on expiry</span>
+    </span>
+  </div>
+  <% if (rows.length === 0) { %>
+    <div style="padding:48px 22px;text-align:center;color:var(--phosphor-faint);font-size:12px;line-height:1.7">
+      <div style="font-size:14px;color:var(--phosphor-dim);letter-spacing:0.04em;margin-bottom:8px">no invitations yet</div>
+      operators issue invites from the lobby. the table populates as they go.
+    </div>
+  <% } else { %>
+    <div style="overflow:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>inviter</th>
+            <th>invitee</th>
+            <th>status</th>
+            <th>source</th>
+            <th>age</th>
+            <th>note</th>
+            <th style="width:200px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(function(inv) { %>
+            <tr>
+              <td class="alias">
+                <%= inv.inviter_alias || '—' %>
+                <% if (inv.inviter_alias_override) { %>
+                  <span style="font-size:9px;letter-spacing:0.1em;color:var(--amber);margin-left:4px">(custom)</span>
+                <% } %>
+              </td>
+              <td class="dim" style="font-size:11px;word-break:break-all"><%= inv.invitee_email %></td>
+              <td>
+                <% var c = inv.status === 'pending' ? 'var(--amber)' : (inv.status === 'accepted' ? 'var(--phosphor)' : (inv.status === 'revoked' ? 'var(--warn)' : 'var(--phosphor-faint)')); %>
+                <span style="font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:<%= c %>"><%= inv.status %></span>
+              </td>
+              <td class="dim" style="font-size:11px"><%= inv.source.replace('_', ' ') %></td>
+              <td class="dim" style="font-size:11px"><%= relAge(inv.created_at) %></td>
+              <td class="dim" style="font-size:11px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><%= inv.note || '—' %></td>
+              <td class="action">
+                <% if (inv.status === 'pending') { %>
+                  <button class="btn sm" type="button" data-copy-claim="<%= inv.token %>">[ copy link ]</button>
+                  <button class="btn sm warn" type="button" data-revoke-invite="<%= inv.id %>">[ revoke ]</button>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<script>
+(function(){
+  var toggleBtn = document.querySelector('[data-invite-override-toggle]');
+  var form = document.querySelector('[data-invite-override]');
+  var formSection = document.querySelector('[data-invite-override-form]');
+  var resultEl = document.querySelector('[data-invite-override-result]');
+  if (toggleBtn && formSection) {
+    toggleBtn.addEventListener('click', function(){
+      formSection.hidden = !formSection.hidden;
+    });
+  }
+  // Show the custom-alias text input only when "(custom)" is the selected
+  // option. Default to hidden when an operator is picked. The form ships with
+  // the dropdown defaulted to __custom__, so the input is visible on first
+  // render — the toggle handles subsequent changes.
+  var inviterSelect = form && form.querySelector('[data-inviter-select]');
+  var customAliasWrap = form && form.querySelector('[data-custom-alias-wrap]');
+  var customAliasInput = customAliasWrap && customAliasWrap.querySelector('input[name="inviter_alias_override"]');
+  function syncCustomAlias() {
+    if (!inviterSelect || !customAliasWrap) return;
+    var isCustom = inviterSelect.value === '__custom__';
+    customAliasWrap.style.display = isCustom ? '' : 'none';
+    if (customAliasInput) customAliasInput.required = isCustom;
+  }
+  if (inviterSelect) {
+    inviterSelect.addEventListener('change', syncCustomAlias);
+    syncCustomAlias();
+  }
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var fd = new FormData(form);
+      var rawInviter = fd.get('inviter_id');
+      var isCustom = rawInviter === '__custom__';
+      var customAlias = (fd.get('inviter_alias_override') || '').trim();
+      if (isCustom && !customAlias) {
+        if (resultEl) resultEl.textContent = 'error · custom alias required';
+        return;
+      }
+      fetch('/admin/api/invitations', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviter_id: isCustom ? null : Number(rawInviter),
+          invitee_email: fd.get('invitee_email'),
+          note: fd.get('note') || null,
+          inviter_alias_override: customAlias || null,
+        }),
+      }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+        .then(function(o){
+          if (!o.ok) { if (resultEl) resultEl.textContent = 'error · ' + (o.j.error || 'unknown'); return; }
+          if (resultEl) resultEl.textContent = 'issued · invitation ' + o.j.invitation.id + ' · mail ' + (o.j.mail && o.j.mail.ok ? 'sent' : 'queued');
+          setTimeout(function(){ window.location.reload(); }, 800);
+        }).catch(function(e){ if (resultEl) resultEl.textContent = 'error · ' + e.message; });
+    });
+  }
+  document.querySelectorAll('[data-copy-claim]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var token = btn.getAttribute('data-copy-claim');
+      var origin = window.location.origin;
+      var link = origin + '/claim/' + token;
+      try { navigator.clipboard.writeText(link); btn.textContent = '[ copied ]'; setTimeout(function(){ btn.textContent = '[ copy link ]'; }, 1500); } catch (e) {}
+    });
+  });
+  document.querySelectorAll('[data-revoke-invite]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (!confirm('revoke this invitation?')) return;
+      var id = btn.getAttribute('data-revoke-invite');
+      fetch('/admin/api/invitations/' + id + '/revoke', { method: 'POST', credentials: 'same-origin' })
+        .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+        .then(function(){ window.location.reload(); })
+        .catch(function(e){ alert('revoke failed: ' + e.message); });
+    });
+  });
+})();
+</script>

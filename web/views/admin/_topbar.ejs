@@ -1,0 +1,72 @@
+<%
+  // Shared admin topbar. Inputs (via locals):
+  //   phase, launchAt, endAt, mailConfigured, adminEmail, variation
+  // Optional: manualUrl (defaults to /manual)
+  function _fmtClock(d) {
+    if (!d) return '—';
+    var dt = new Date(d);
+    if (isNaN(dt.getTime())) return '—';
+    return dt.toISOString().slice(0,16).replace('T',' ');
+  }
+  function _humanDelta(targetIso) {
+    if (!targetIso) return '—';
+    var ms = new Date(targetIso).getTime() - Date.now();
+    if (ms <= 0) return '—';
+    var d = Math.floor(ms / 86400000);
+    var h = Math.floor((ms / 3600000) % 24);
+    var m = Math.floor((ms / 60000) % 60);
+    if (d) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h) return h + 'h ' + m + 'm';
+    return m + 'm';
+  }
+  var _phaseTone = ({uninitialized:'uninit',prelaunch:'prelaunch',live:'live',frozen:'frozen'})[phase] || 'uninit';
+  var _v = (typeof variation !== 'undefined' && variation === 'narrative') ? 'narrative' : 'dense';
+%>
+<header class="opsbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span>zeroday · operator console</span>
+  </div>
+  <div class="center">
+    <div class="seg">
+      <span>phase</span>
+      <span class="phase-pill <%= _phaseTone %>"><span class="led pulse"></span><%= phase %></span>
+    </div>
+    <div class="seg"><span>launch</span><b><%= phase === 'uninitialized' ? '—' : (phase === 'prelaunch' ? 'in ' + _humanDelta(launchAt) : _fmtClock(launchAt)) %></b></div>
+    <div class="seg"><span>gibson cold</span><b><%= phase === 'uninitialized' ? '—' : _humanDelta(endAt) %></b></div>
+    <div class="seg"><span>mail</span><b style="color:<%= mailConfigured ? 'var(--phosphor)' : 'var(--warn)' %>"><%= mailConfigured ? 'verified' : 'unverified' %></b></div>
+  </div>
+  <div class="right">
+    <a class="btn sm" href="/admin/setup">[ setup ]</a>
+    <div class="hint-dd" id="user-menu">
+      <button class="btn sm" type="button" id="user-menu-btn">
+        <span class="uname"><%= adminEmail %></span> ▾
+      </button>
+      <div class="hint-menu" id="user-menu-list" style="right:0;left:auto;min-width:240px;display:none">
+        <a class="hm-item" href="/admin/account" style="text-decoration:none;color:inherit">
+          <span class="hm-tag">◆</span><span>account</span><span class="hm-cost">password · mail</span>
+        </a>
+        <a class="hm-item" href="/manual" style="text-decoration:none;color:inherit">
+          <span class="hm-tag">▤</span><span>manual</span><span class="hm-cost">operator briefing</span>
+        </a>
+        <div class="hm-section">layout</div>
+        <form method="post" action="/admin/variation" style="margin:0">
+          <button type="submit" name="v" value="dense" class="hm-item<%= _v === 'dense' ? ' active' : '' %>" style="background:transparent;border:none;width:100%;text-align:left;font:inherit;letter-spacing:inherit;cursor:pointer;color:inherit">
+            <span class="hm-tag"><%= _v === 'dense' ? '●' : '○' %></span><span>dense ops</span><span class="hm-cost">A</span>
+          </button>
+        </form>
+        <form method="post" action="/admin/variation" style="margin:0">
+          <button type="submit" name="v" value="narrative" class="hm-item<%= _v === 'narrative' ? ' active' : '' %>" style="background:transparent;border:none;width:100%;text-align:left;font:inherit;letter-spacing:inherit;cursor:pointer;color:inherit">
+            <span class="hm-tag"><%= _v === 'narrative' ? '●' : '○' %></span><span>narrative</span><span class="hm-cost">B</span>
+          </button>
+        </form>
+        <div class="hm-section">session</div>
+        <form method="post" action="/admin/logout" style="margin:0">
+          <button type="submit" class="hm-item" style="background:transparent;border:none;width:100%;text-align:left;font:inherit;letter-spacing:inherit;cursor:pointer">
+            <span class="hm-tag" style="color:var(--warn)">⏻</span><span>log out</span><span class="hm-cost">end session</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>operator console — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+<div class="crt-stage">
+  <div class="login-stage">
+    <div class="crumb-bar">
+      <span>zeroday.console</span>
+      <span>·</span>
+      <span>v3.14</span>
+      <span>·</span>
+      <span class="<%= state === 'uninitialized' ? 'warn' : '' %>">phase: <%= state === 'uninitialized' ? 'uninitialized' : (state === 'mail-configured' ? 'armed' : 'password-set') %></span>
+    </div>
+
+    <% if (morph) { %>
+      <form class="login-card bootstrap" method="post" action="/admin/login">
+        <input type="hidden" name="mode" value="bootstrap" />
+        <div class="click-trace">
+          <span>★ bootstrap</span>
+        </div>
+        <h1 class="warn">★ set new admin password</h1>
+        <div class="sub">no admin_password_hash on record. set it now. this form will not appear again.</div>
+        <div>
+          <span class="lbl">new password · 8+</span>
+          <input class="input" type="password" name="new_password" autocomplete="new-password" required minlength="8" autofocus placeholder="—" />
+        </div>
+        <div>
+          <span class="lbl">confirm</span>
+          <input class="input" type="password" name="confirm_password" autocomplete="new-password" required minlength="8" placeholder="—" />
+        </div>
+        <% if (message) { %><div class="fld-err">&gt; <%= message %></div><% } %>
+        <div class="submit-row">
+          <span class="dim" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase">argon2id · stored in app_settings</span>
+          <button class="btn warn solid" type="submit">[ set password &amp; login ]</button>
+        </div>
+      </form>
+    <% } else if (state === 'uninitialized') { %>
+      <%# Pre-bootstrap: dual-field form, 5 empty submits arms the easter egg. %>
+      <form class="login-card" method="post" action="/admin/login" id="login-form">
+        <input type="hidden" name="mode" value="password" />
+        <div class="click-trace">
+          <span>access</span>
+          <% for (var i = 1; i <= 5; i++) { %>
+            <span class="dot <%= clicks >= i ? 'on' : '' %>"></span>
+          <% } %>
+        </div>
+        <h1>operator console</h1>
+        <div class="sub">authorized personnel only. all actions are logged with email and ip.</div>
+        <div>
+          <span class="lbl">admin email</span>
+          <input class="input" type="email" name="email" autocomplete="off" placeholder="—" />
+        </div>
+        <div>
+          <span class="lbl">password</span>
+          <input class="input" type="password" name="password" autocomplete="off" placeholder="—" />
+        </div>
+        <% if (message) { %><div class="fld-err">&gt; <%= message %></div><% } %>
+        <div class="submit-row">
+          <span class="dim" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase">
+            <%= clicks > 0 ? 'submit · ' + clicks + '/5' : 'submit to authenticate' %>
+          </span>
+          <button class="btn" type="submit">[ submit ]</button>
+        </div>
+      </form>
+    <% } else { %>
+      <%# Initialized: streamlined login. Default = magic link when mail configured;
+          a "use password instead" toggle reveals the password field. The toggle
+          is a real anchor to /admin/login?fallback=password so the password path
+          stays reachable when the JS intercept doesn't run (CSP, extension
+          breakage, text browser). The JS upgrade calls preventDefault() to keep
+          the snappy in-place swap for the 99% JS-on path. %>
+      <% var defaultMode = (state === 'mail-configured' && prefer !== 'password') ? 'magic' : 'password'; %>
+      <form class="login-card login-streamlined" method="post" action="/admin/login" id="login-form" data-mode="<%= defaultMode %>">
+        <input type="hidden" name="mode" id="login-mode" value="<%= defaultMode %>" />
+        <h1>operator console</h1>
+        <div class="sub">authorized personnel only. all actions are logged with email and ip.</div>
+        <div>
+          <span class="lbl">admin email</span>
+          <input class="input" type="email" name="email" autocomplete="username" placeholder="—" required autofocus />
+        </div>
+        <div id="password-field" <%= defaultMode === 'magic' ? 'hidden' : '' %>>
+          <span class="lbl">password</span>
+          <input class="input" type="password" name="password" autocomplete="current-password" placeholder="—" <%= defaultMode === 'password' ? 'required' : '' %> />
+        </div>
+        <% if (message) { %><div class="fld-err">&gt; <%= message %></div><% } %>
+        <div class="primary-action">
+          <button class="btn solid" type="submit" id="primary-btn">
+            <%= defaultMode === 'magic' ? '[ send magic link ]' : '[ login ]' %>
+          </button>
+        </div>
+        <% if (state === 'mail-configured') { %>
+          <a class="mode-toggle" id="toggle-mode" href="/admin/login<%= defaultMode === 'magic' ? '?fallback=password' : '' %>">
+            <span class="arrow" aria-hidden="true"><%= defaultMode === 'magic' ? '↓' : '↑' %></span>
+            <span class="toggle-label"><%= defaultMode === 'magic' ? 'use password instead' : 'use magic link' %></span>
+          </a>
+        <% } else { %>
+          <div class="mode-note dim">magic link offline — password required</div>
+        <% } %>
+      </form>
+      <% if (state === 'mail-configured') { %>
+      <script>
+        (function () {
+          var form = document.getElementById('login-form');
+          var modeInput = document.getElementById('login-mode');
+          var pwField = document.getElementById('password-field');
+          var pwInput = pwField.querySelector('input[name="password"]');
+          var primary = document.getElementById('primary-btn');
+          var toggle = document.getElementById('toggle-mode');
+          var arrow = toggle.querySelector('.arrow');
+          var label = toggle.querySelector('.toggle-label');
+          function setMode(next) {
+            form.dataset.mode = next;
+            modeInput.value = next;
+            if (next === 'magic') {
+              pwField.hidden = true;
+              pwInput.required = false;
+              pwInput.value = '';
+              primary.textContent = '[ send magic link ]';
+              arrow.textContent = '↓';
+              label.textContent = 'use password instead';
+              toggle.setAttribute('href', '/admin/login?fallback=password');
+            } else {
+              pwField.hidden = false;
+              pwInput.required = true;
+              primary.textContent = '[ login ]';
+              arrow.textContent = '↑';
+              label.textContent = 'use magic link';
+              toggle.setAttribute('href', '/admin/login');
+              pwInput.focus();
+            }
+          }
+          toggle.addEventListener('click', function (event) {
+            event.preventDefault();
+            setMode(form.dataset.mode === 'magic' ? 'password' : 'magic');
+          });
+        })();
+      </script>
+      <% } %>
+    <% } %>
+
+    <div class="console-trail">
+      <% if (state === 'uninitialized') { %>
+        <div><span class="ghost">·</span> [admin] no admin_password_hash; lockdown</div>
+        <div><span class="ghost">·</span> [admin] anyone may attempt bootstrap once</div>
+      <% } else { %>
+        <div><span class="ghost">·</span> [admin] password set · awaiting credentials</div>
+      <% } %>
+      <% if (clicks > 0 && !morph) { %>
+        <div><span class="ghost">·</span> [admin] empty submit · click <%= clicks %>/5</div>
+      <% } %>
+      <% if (magicSent) { %>
+        <div class="glow" style="color:var(--phosphor)"><span class="ghost">·</span> [admin] transmission sent · check inbox</div>
+      <% } %>
+      <% if (message && morph) { %>
+        <div class="warn"><span class="ghost">·</span> [admin] <%= message %></div>
+      <% } %>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<%
+  // Shared admin sidenav. Inputs (via locals):
+  //   active        — 'overview' | 'players' | 'feed' | 'hints' | 'audit' | 'trials' | 'settings'
+  //   playersCount  — number for the players badge
+  //   stuckCount    — number of stuck players (drives hints/players badge tone)
+  //   queueCount    — drafts in the hint queue
+  //   totalChallenges
+  //   phase
+  var _act = typeof active !== 'undefined' ? active : 'overview';
+  var _stuck = typeof stuckCount !== 'undefined' ? stuckCount : 0;
+  var _queue = typeof queueCount !== 'undefined' ? queueCount : _stuck;
+  var _pn = typeof playersCount !== 'undefined' ? playersCount : 0;
+  var _tot = typeof totalChallenges !== 'undefined' ? totalChallenges : 19;
+%>
+<aside class="sidenav">
+  <div class="group">OPS</div>
+  <a href="/admin"          class="<%= _act === 'overview' ? 'active' : '' %>"><span class="glyph">◇</span><span>overview</span><span></span></a>
+  <a href="/admin/players"  class="<%= _act === 'players'  ? 'active' : '' %>"><span class="glyph">◈</span><span>players</span><span class="badge<%= _stuck === 0 ? ' ok' : '' %>"><%= _pn %></span></a>
+  <a href="/admin/feed"     class="<%= _act === 'feed'     ? 'active' : '' %>"><span class="glyph">≡</span><span>live feed</span><span></span></a>
+  <a href="/admin/hints"    class="<%= _act === 'hints'    ? 'active' : '' %>"><span class="glyph">◉</span><span>hint queue</span><% if (_queue > 0) { %><span class="badge"><%= _queue %></span><% } else { %><span></span><% } %></a>
+  <div class="group">CONTENT</div>
+  <a href="/admin#trials"   class="<%= _act === 'trials'   ? 'active' : '' %>"><span class="glyph">◍</span><span>trials</span><span class="badge ok"><%= _tot %></span></a>
+  <div class="group">SECURITY</div>
+  <a href="/admin#audit"    class="<%= _act === 'audit'    ? 'active' : '' %>"><span class="glyph">☉</span><span>audit log</span><span></span></a>
+  <a href="/admin/setup"    class="<%= _act === 'settings' ? 'active' : '' %>"><span class="glyph">✦</span><span>app_settings</span><span></span></a>
+  <div class="spacer"></div>
+  <div class="footnote">
+    <div>db · sqlite</div>
+    <div class="build"><span>build</span><span>3.14</span></div>
+    <div class="build"><span>phase</span><span><%= phase %></span></div>
+  </div>
+</aside>

@@ -1,0 +1,32 @@
+# Wildcard auto-TLS via Cloudflare DNS-01. Requires CLOUDFLARE_API_TOKEN env
+# in the caddy container with Zone.DNS:Edit on example.com.
+#
+# Single-origin: every *.example.com host is reverse-proxied to the same app.
+# The app picks behavior off the Host header.
+
+{
+	email admin@example.com
+	# Use a Cloudflare-provided wildcard cert for *.example.com.
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+}
+
+*.example.com, example.com {
+	encode gzip
+	# Long timeouts so port-scan / nmap challenges don't drop.
+	reverse_proxy app:3000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+	}
+}
+
+# Extra raw-tcp listener used by the "ports of call" challenge (challenge 13).
+# Caddy on its own only does HTTP; this listener prints an ASCII banner.
+:31337 {
+	respond "
+   .-.
+  ( gibson )      port 31337 — back door is open.
+   '-'           submit the next phrase to the wopr.
+                ZERODAY{...}
+"
+}

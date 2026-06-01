@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>privacy &amp; cookies — zeroday</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/admin.css" />
+  <style>
+    body { overflow: auto; padding: 32px 24px 80px; max-width: 820px; margin: 0 auto; }
+    h1 { font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chrome); margin: 0 0 6px; }
+    .lede { color: var(--phosphor-faint); margin: 0 0 28px; }
+    h2 { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--phosphor); margin: 28px 0 8px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+    p, li { color: var(--phosphor-dim); line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px dashed var(--rule); vertical-align: top; }
+    th { color: var(--chrome); font-weight: 500; letter-spacing: 0.04em; }
+    code { background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 2px; }
+    .pledge { border-left: 3px solid var(--phosphor); padding: 10px 14px; margin: 14px 0; background: rgba(40,80,40,0.10); }
+    .pledge strong { color: var(--chrome); }
+    .actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .actions button, .actions a {
+      font-family: inherit; font-size: 13px;
+      background: transparent; border: 1px solid var(--phosphor-ghost);
+      color: var(--phosphor); padding: 7px 14px; cursor: pointer; text-decoration: none; border-radius: 2px;
+    }
+    .actions button:hover, .actions a:hover { background: rgba(120,200,140,0.08); }
+    a { color: var(--phosphor); }
+  </style>
+</head>
+<body>
+  <h1>Privacy &amp; cookies</h1>
+  <p class="lede">What this site collects, what it doesn&rsquo;t, and how to change your mind.</p>
+
+  <div class="pledge">
+    <strong>We do not sell your data. Ever.</strong>
+    We do not share it with third parties for marketing. There is no ad network on this site.
+    The only outbound telemetry is the two analytics tools listed below, used solely to keep the game working and improve it.
+  </div>
+
+  <h2>What we collect</h2>
+  <p>Three categories, in plain terms:</p>
+  <ul>
+    <li><strong>Authentication cookies (strictly necessary).</strong> Small first-party cookies that prove you&rsquo;re signed in. Without them, the site can&rsquo;t tell you apart from anyone else and you can&rsquo;t play. You cannot disable these and use the site.</li>
+    <li><strong>Microsoft Clarity (optional, requires consent).</strong> Anonymous session replay and heatmaps so we can see where players get stuck and fix UX bugs. Loaded only after you click &ldquo;Accept&rdquo; on the cookie banner. We never feed it any account identifier; Clarity also masks input fields by default. After Accept we generate a random per-browser ID stored in <code>localStorage.zd_clarity_id</code> and pass it to Clarity so reloads and tabs in the same browser map to one visitor instead of fragmenting into many &mdash; the ID is not tied to your account and never leaves your browser except as that opaque token.</li>
+    <li><strong>Cloudflare Web Analytics (cookieless, always on).</strong> Cloudflare injects a tiny beacon at the network edge to count page views and measure load times. It uses no cookies, no fingerprinting, and no cross-site identifiers, which is why it&rsquo;s exempt from consent requirements under GDPR &amp; ePrivacy. We cannot turn it off from inside the app &mdash; it runs in the proxy layer before your browser ever sees our HTML.</li>
+  </ul>
+
+  <h2>Cookies in use</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Purpose</th><th>Retention</th></tr></thead>
+    <tbody>
+      <tr><td><code>player_session</code></td><td>Keeps you logged in as a player.</td><td>Session / signed out on logout</td></tr>
+      <tr><td><code>admin_session</code></td><td>Keeps the operator logged in to /admin.</td><td>Session / signed out on logout</td></tr>
+      <tr><td><code>admin_login_clicks</code></td><td>Counts empty-field clicks for the admin bootstrap interaction.</td><td>Few minutes, deleted automatically</td></tr>
+      <tr><td><code>admin_bootstrap_ready</code></td><td>Short-lived gate that authorizes the very first admin password to be set.</td><td>Few minutes, deleted automatically</td></tr>
+      <tr><td><code>admin_variation</code></td><td>Remembers an admin UI preference toggle.</td><td>Until cleared</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What we do not do</h2>
+  <ul>
+    <li>We do not sell, rent, or trade your data.</li>
+    <li>We do not share data with advertising networks. There are none.</li>
+    <li>We do not build profiles of you across other sites.</li>
+    <li>We do not run third-party trackers beyond the two analytics tools above.</li>
+  </ul>
+
+  <h2>Your controls</h2>
+  <p>You can change your cookie choice at any time. The banner shows on your first visit; once you&rsquo;ve answered, a small &ldquo;Cookies&rdquo; link sits in the bottom-right corner of every page.</p>
+  <div class="actions">
+    <button type="button" onclick="if(window.__zdConsent && window.__zdConsent.openModal) window.__zdConsent.openModal();">Manage cookies</button>
+    <button type="button" onclick="if(window.__zdConsent && window.__zdConsent.reset) window.__zdConsent.reset();">Reset consent</button>
+    <a href="/">Back to the lobby</a>
+  </div>
+
+  <h2>Contact</h2>
+  <p>Questions about this page? Reach the operator via the contact channel listed in the project README.</p>
+</body>
+</html>

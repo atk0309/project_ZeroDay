@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<%- include('_head', { title: 'live feed — zeroday operator console' }) %>
+</head>
+<body>
+<%
+  var lastEventId = 0;
+  events.forEach(function(e){ if (e.id > lastEventId) lastEventId = e.id; });
+  var maxBucket = 1; buckets.forEach(function(n){ if (n > maxBucket) maxBucket = n; });
+  var KIND_META = {
+    solve:                { glyph: 'S', color: 'var(--phosphor)',     label: 'solve · trial cleared' },
+    attempt:              { glyph: 'A', color: 'var(--phosphor-dim)', label: 'attempt · submit' },
+    refused:              { glyph: 'R', color: 'var(--warn)',         label: 'refused · ordinal mismatch' },
+    signup:               { glyph: 'I', color: 'var(--cold)',         label: 'signup · operator created' },
+    drip:                 { glyph: 'D', color: 'var(--amber)',        label: 'drip · auto-hint queued' },
+    skip:                 { glyph: 'K', color: 'var(--amber)',        label: 'skip · admin advance' },
+    invite_sent:          { glyph: 'V', color: 'var(--amber)',        label: 'invite · sent' },
+    invite_claimed:       { glyph: 'V', color: 'var(--phosphor)',     label: 'invite · claimed' },
+    invite_revoked:       { glyph: 'V', color: 'var(--warn)',         label: 'invite · revoked' },
+    invite_expired:       { glyph: 'V', color: 'var(--phosphor-faint)', label: 'invite · expired' },
+    invite_request_sent:  { glyph: 'Q', color: 'var(--amber)',        label: 'request · pending' }
+  };
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+    <%- include('_topbar', { phase: phase, launchAt: launchAt, endAt: endAt, mailConfigured: mailConfigured, adminEmail: adminEmail, variation: variation }) %>
+    <div class="app-body">
+      <%- include('_sidenav', { active: 'feed', playersCount: players.length, stuckCount: stuckCount, queueCount: stuckCount, totalChallenges: total, phase: phase }) %>
+      <div class="workspace">
+
+        <!-- TELEMETRY STRIP -->
+        <div class="phase-strip" style="grid-template-columns:1.4fr repeat(6, 1fr)">
+          <div>
+            <div class="kpi-l">events / min · last 24m</div>
+            <div style="display:flex;align-items:flex-end;gap:2px;height:56px;margin-top:10px">
+              <% buckets.forEach(function(n, i) { var hot = i >= 18; var h = Math.max(2, Math.round((n / maxBucket) * 56)); %>
+                <div style="flex:1;height:<%= h %>px;background:<%= hot && n > 0 ? 'var(--phosphor)' : 'var(--phosphor-dim)' %>;<%= hot && n > 0 ? 'box-shadow:0 0 4px var(--phosphor)' : '' %>"></div>
+              <% }); %>
+            </div>
+            <div class="dim" style="font-size:10px;margin-top:6px;letter-spacing:0.06em">
+              current · <span class="chrome tabular"><%= buckets[buckets.length-1] %></span>/min · peak <span class="chrome tabular"><%= maxBucket %></span>
+            </div>
+          </div>
+          <% Object.keys(KIND_META).forEach(function(k) { var m = KIND_META[k]; var n = kindCounts[k] || 0; %>
+            <div>
+              <div class="kpi-l" style="color:<%= m.color %>"><%= m.glyph %> · <%= k %></div>
+              <div class="kpi-v" style="font-size:26px;color:<%= m.color %>"><%= n %></div>
+              <div class="dim" style="font-size:9.5px;margin-top:4px;letter-spacing:0.06em">last 100</div>
+            </div>
+          <% }); %>
+        </div>
+
+        <!-- CONTROL BAR -->
+        <div style="padding:12px 22px;border-bottom:1px solid var(--rule);display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,0.3)">
+          <input class="input" id="feed-grep" placeholder="grep · alias or text" style="max-width:280px;font-size:11.5px;padding:5px 10px" />
+          <span class="dim" style="font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;margin-left:8px">kinds</span>
+          <% Object.keys(KIND_META).forEach(function(k) { var m = KIND_META[k]; %>
+            <button class="btn sm solid" data-feed-kind="<%= k %>" style="color:<%= m.color %>;border-color:<%= m.color %>">[ ✓ <%= k %> ]</button>
+          <% }); %>
+          <span style="flex:1"></span>
+          <button class="btn sm solid" id="feed-tail-toggle">⏸ pause tail</button>
+        </div>
+
+        <div class="split" style="grid-template-columns:1fr 320px">
+          <!-- MAIN LOG -->
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led pulse"></span>event_stream · <span id="feed-state">tailing</span></span>
+                <span class="meta">
+                  <span><b><%= events.length %></b> shown</span>
+                  <span>append-only · admin_event_log</span>
+                </span>
+              </div>
+              <div class="feed-list" data-events-list data-last-id="<%= lastEventId %>" id="feed-list" style="max-height:calc(100vh - 380px);overflow:auto">
+                <% events.forEach(function(e, i) { var kind = e.kind || 'attempt'; var letter = (kind[0]||'?').toUpperCase(); %>
+                  <div class="feed-row <%= kind %><%= i === 0 ? ' new' : '' %>" data-event-id="<%= e.id %>" data-event-kind="<%= kind %>">
+                    <span class="t"><%= e.created_at ? new Date(e.created_at).toISOString().slice(11,19) : '' %></span>
+                    <span class="k"><%= letter %></span>
+                    <span class="body"><b><%= e.alias || '—' %></b> <%= e.payload || kind %></span>
+                    <span class="delta"></span>
+                  </div>
+                <% }); %>
+                <% if (events.length === 0) { %>
+                  <div style="padding:40px;text-align:center;color:var(--phosphor-faint);font-size:12px">no events yet · the stream wakes once players move</div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <!-- SIDE RAIL -->
+          <div class="pane">
+            <div class="section">
+              <div class="section-head"><span class="title">kind legend</span></div>
+              <div style="padding:12px 22px;display:flex;flex-direction:column;gap:10px">
+                <% Object.keys(KIND_META).forEach(function(k) { var m = KIND_META[k]; var n = kindCounts[k] || 0; %>
+                  <div style="display:grid;grid-template-columns:20px 1fr auto;gap:10px;align-items:baseline;font-size:11.5px">
+                    <span style="border:1px solid <%= m.color %>;color:<%= m.color %>;font-size:9.5px;letter-spacing:0.1em;text-align:center;padding:1px 0;height:14px;display:flex;align-items:center;justify-content:center"><%= m.glyph %></span>
+                    <span style="color:<%= m.color %>"><%= m.label %></span>
+                    <span class="dim tabular"><%= n %></span>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head"><span class="title">top emitters · last 100</span></div>
+              <div style="padding:12px 22px;display:flex;flex-direction:column;gap:6px">
+                <% var maxEm = topEmitters.length ? topEmitters[0][1] : 1; topEmitters.forEach(function(pair) { var alias = pair[0], n = pair[1]; %>
+                  <div style="font-size:11.5px;display:grid;grid-template-columns:120px 1fr 30px;gap:10px;align-items:center">
+                    <span class="chrome" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><%= alias %></span>
+                    <div style="height:6px;background:rgba(0,0,0,0.5);border:1px solid var(--rule)">
+                      <div style="width:<%= Math.round((n/maxEm)*100) %>%;height:100%;background:color-mix(in oklch, var(--phosphor), transparent 50%);box-shadow:0 0 4px color-mix(in oklch, var(--phosphor), transparent 70%) inset"></div>
+                    </div>
+                    <span class="dim tabular" style="text-align:right"><%= n %></span>
+                  </div>
+                <% }); %>
+                <% if (topEmitters.length === 0) { %>
+                  <div class="dim" style="font-size:11px;padding:8px 0">no emitters yet</div>
+                <% } %>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head"><span class="title">stream · meta</span></div>
+              <div class="kv" style="margin:12px 22px">
+                <div class="k">source</div>      <div class="v">sqlite events table</div>
+                <div class="k">retention</div>   <div class="v">forever · append-only</div>
+                <div class="k">poll</div>        <div class="v">5s · client interval</div>
+                <div class="k">backpressure</div><div class="v" style="color:var(--phosphor)">none · 0 dropped</div>
+                <div class="k">sink</div>        <div class="v">admin_event_log</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('_drawer') %>
+<script src="/static/admin.js"></script>
+<script>
+// Light feed-screen-only sugar: kind filter, grep, tail pause.
+(function(){
+  var list = document.getElementById('feed-list');
+  if (!list) return;
+  var grep = document.getElementById('feed-grep');
+  var stateLabel = document.getElementById('feed-state');
+  var kindBtns = document.querySelectorAll('[data-feed-kind]');
+  var active = {};
+  kindBtns.forEach(function(b){ active[b.dataset.feedKind] = true; });
+  function apply() {
+    var q = (grep.value || '').toLowerCase();
+    Array.prototype.forEach.call(list.children, function(row){
+      var k = row.dataset && row.dataset.eventKind;
+      var kindOk = !k || active[k] !== false;
+      var text = (row.textContent || '').toLowerCase();
+      var grepOk = !q || text.indexOf(q) !== -1;
+      row.style.display = (kindOk && grepOk) ? '' : 'none';
+    });
+  }
+  if (grep) grep.addEventListener('input', apply);
+  kindBtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.dataset.feedKind;
+      active[k] = !active[k];
+      b.classList.toggle('solid', active[k]);
+      b.textContent = '[ ' + (active[k] ? '✓' : ' ') + ' ' + k + ' ]';
+      apply();
+    });
+  });
+  var tailBtn = document.getElementById('feed-tail-toggle');
+  if (tailBtn) {
+    var paused = false;
+    tailBtn.addEventListener('click', function(){
+      paused = !paused;
+      // The shared admin.js polling will keep adding rows; we just hide them.
+      tailBtn.textContent = paused ? '▶ resume tail' : '⏸ pause tail';
+      tailBtn.classList.toggle('solid', !paused);
+      if (stateLabel) stateLabel.textContent = paused ? 'paused' : 'tailing';
+      list.dataset.paused = paused ? '1' : '';
+    });
+  }
+})();
+</script>
+</body>
+</html>

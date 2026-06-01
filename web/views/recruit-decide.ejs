@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeroday // consent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/recruit-flow.css">
+</head>
+<body class="recruit-flow">
+<%
+  const safeAlias = String(alias || 'OPERATOR').replace(/[<>&"']/g, function (c) {
+    return { '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+  const preamble = [
+    '<span class="ghost">&gt;</span> identity accepted: <span class="chrome">' + safeAlias + '</span>',
+    '<span class="ghost">&gt;</span> channel pair synchronized.',
+    '<span class="ghost">&gt;</span> one last decision before we go any further.',
+    '',
+    '<span class="chrome">this is your last chance. after this, there is no turning back.</span>'
+  ];
+%>
+<div class="crt-stage crt-flicker">
+  <div class="screen centered">
+    <div class="stack-lg" style="width: 960px; max-width: 100%;">
+
+      <div class="row between term-xs dim">
+        <span>CH://secure</span>
+        <span>consent.example.com // final handshake</span>
+        <span class="glow"><%= alias || 'OPERATOR' %></span>
+      </div>
+
+      <div class="term" style="min-height: 140px;">
+        <div class="typed-block"
+             data-speed="16"
+             data-line-delay="140"
+             data-lines="<%= JSON.stringify(preamble) %>"></div>
+      </div>
+
+      <form id="decide-form" method="post" action="/recruit">
+        <input type="hidden" name="alias" value="<%= alias %>">
+        <input type="hidden" name="email" value="<%= email %>">
+
+        <div class="row" style="gap: 24px; align-items: stretch;">
+
+          <button type="submit" name="pill" value="red" class="pill-card red">
+            <div class="row" style="gap: 18px;">
+              <div class="pill-glyph red">●</div>
+              <div>
+                <div class="term-xs dim">OPTION A</div>
+                <div class="term-lg warn glow-strong">take the red pill.</div>
+              </div>
+            </div>
+            <div class="term-sm" style="color: oklch(78% 0.14 25);">
+              see how deep the rabbit hole goes. we send you a key. you come back through it. you meet the others.
+            </div>
+            <div class="term-xs dim" style="margin-top: auto;">
+              → a magic link, via encrypted mail. 15 minutes. use it or lose it.
+            </div>
+            <div class="term-sm warn glow pill-confirm">&gt; [ confirm rabbit hole ]</div>
+          </button>
+
+          <button type="submit" name="pill" value="blue" class="pill-card blue">
+            <div class="row" style="gap: 18px;">
+              <div class="pill-glyph blue">●</div>
+              <div>
+                <div class="term-xs dim">OPTION B</div>
+                <div class="term-lg cold glow-strong">take the blue pill.</div>
+              </div>
+            </div>
+            <div class="term-sm" style="color: oklch(80% 0.11 230);">
+              close the tab. go to bed. wake up in your bed and believe whatever you want to believe.
+            </div>
+            <div class="term-xs dim" style="margin-top: auto;">
+              → nothing happens. no record. probably.
+            </div>
+            <div class="term-sm cold glow pill-confirm">&gt; [ forget everything ]</div>
+          </button>
+
+        </div>
+      </form>
+
+      <div class="term-xs dim" style="text-align: center; margin-top: 8px; font-style: italic;">
+        remember — all we're offering is the truth. nothing more.
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="/static/recruit-flow.js"></script>
+</body>
+</html>

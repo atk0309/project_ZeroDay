@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>leaderboard</title>
+<link rel="stylesheet" href="/static/terminal.css"></head>
+<body><main class="crt">
+<h1>operators</h1>
+<table>
+  <thead>
+    <tr><th>alias</th><th>stage</th><th>points</th><th>hints</th><th>last advance</th></tr>
+  </thead>
+  <tbody id="leaderboard-body">
+    <% rows.forEach(function (r) { %>
+      <tr>
+        <td><%= r.alias %><% if (r.admin_skips > 0) { %> <span class="warn">⚠</span><% } %></td>
+        <td><%= r.stage || 1 %>/<%= total %></td>
+        <td><%= r.points || 0 %></td>
+        <td><%= r.hints || 0 %></td>
+        <td><%= r.last_advance_at || '' %></td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+<p><a href="/">← back</a></p>
+</main>
+<script src="/static/terminal.js"></script>
+</body></html>

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<%- include('_head', { title: 'hint queue — zeroday operator console' }) %>
+</head>
+<body>
+<%
+  // Pick the selected hint (default: first stuck operator)
+  var current = null;
+  if (selectedAlias) {
+    current = hints.find(function(h){ return h.alias === selectedAlias; });
+  }
+  if (!current && hints.length) current = hints[0];
+  var currentCh = current ? challenges.find(function(c){ return c.ordinal === current.current_ordinal; }) : null;
+  var currentPlayer = current ? players.find(function(p){ return p.alias === current.alias; }) : null;
+  var hotCount = hints.filter(function(h){ return h.hours_stuck > 23; }).length;
+%>
+<div class="crt-stage">
+  <div class="app-shell">
+    <%- include('_topbar', { phase: phase, launchAt: launchAt, endAt: endAt, mailConfigured: mailConfigured, adminEmail: adminEmail, variation: variation }) %>
+    <div class="app-body">
+      <%- include('_sidenav', { active: 'hints', playersCount: players.length, stuckCount: stuckCount, queueCount: stuckCount, totalChallenges: total, phase: phase }) %>
+      <div class="workspace">
+
+        <!-- QUEUE HEALTH STRIP -->
+        <div class="phase-strip" style="grid-template-columns:1.4fr 1fr 1fr 1fr">
+          <div>
+            <div class="kpi-l">queue · <%= hints.length %> awaiting approval</div>
+            <div class="kpi-v" style="color:<%= hints.length > 0 ? 'var(--amber)' : 'var(--phosphor)' %>;font-size:32px"><%= hints.length %><span class="unit">drafts</span></div>
+            <div style="display:flex;gap:14px;font-size:10.5px;margin-top:8px;color:var(--phosphor-dim);letter-spacing:0.06em">
+              <span>auto · <span class="chrome"><%= hints.length %></span></span>
+              <span>manual · <span class="chrome">0</span></span>
+              <span style="color:var(--warn)">elapsed-hot · <span class="chrome"><%= hotCount %></span></span>
+            </div>
+          </div>
+          <div>
+            <div class="kpi-l">auto-drip cron</div>
+            <div class="kpi-v" style="font-size:22px;color:var(--cold)">09:00</div>
+            <div class="dim" style="font-size:10.5px;margin-top:6px;letter-spacing:0.06em">daily · UTC</div>
+          </div>
+          <div>
+            <div class="kpi-l">trigger</div>
+            <div class="kpi-v" style="font-size:22px">20h on stage</div>
+            <div class="dim" style="font-size:10.5px;margin-top:6px;letter-spacing:0.06em">cooldown · 4h between hints</div>
+          </div>
+          <div>
+            <div class="kpi-l">level costs</div>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:baseline;flex-wrap:wrap">
+              <% hintLevels.forEach(function(lvl, i) { %>
+                <span class="chrome" style="font-size:18px;font-weight:500;<%= i > 0 ? 'margin-left:2px' : '' %>">L<%= lvl %></span><span class="dim" style="font-size:12px">-<%= hintCosts[lvl] %></span>
+              <% }); %>
+            </div>
+            <div class="dim" style="font-size:10.5px;margin-top:6px;letter-spacing:0.06em"><%= hintLevels.map(function(l){ return hintLabels[l]; }).join(' · ') %></div>
+          </div>
+        </div>
+
+        <!-- SPLIT: queue list ↔ preview -->
+        <div class="split" style="grid-template-columns:380px 1fr;min-height:calc(100vh - 320px)">
+          <div class="pane">
+            <div class="section">
+              <div class="section-head">
+                <span class="title"><span class="led warn"></span>drafts · <%= hints.length %></span>
+                <span class="meta"><span>click to preview</span></span>
+              </div>
+              <div style="overflow:auto;max-height:calc(100vh - 320px)">
+                <% hints.forEach(function(h) {
+                  var isSel = current && current.alias === h.alias;
+                  var hot = h.hours_stuck > 23;
+                  var ch = challenges.find(function(c){ return c.ordinal === h.current_ordinal; });
+                  var nextLevel = Math.min((h.last_hint || 0) + 1, maxHintLevel);
+                  var levelLabel = 'level ' + nextLevel;
+                  var hrs = Math.floor(h.hours_stuck);
+                  var mins = Math.round((h.hours_stuck - hrs) * 60);
+                %>
+                  <a href="/admin/hints?s=<%= encodeURIComponent(h.alias) %>" style="text-decoration:none;color:inherit;display:block;padding:12px 16px;border-bottom:1px solid var(--rule);border-left:3px solid <%= isSel ? 'var(--phosphor)' : (hot ? 'var(--warn)' : 'var(--amber)') %>;background:<%= isSel ? 'color-mix(in oklch, var(--phosphor), transparent 90%)' : 'transparent' %>">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline">
+                      <span class="chrome" style="font-size:13px"><%= h.alias %></span>
+                      <span class="amber" style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase"><%= levelLabel %></span>
+                    </div>
+                    <div class="dim" style="font-size:11px;letter-spacing:0.04em;margin-top:4px">
+                      trial <%= String(h.current_ordinal).padStart(2,'0') %><% if (ch) { %> · <span class="chrome"><%= ch.id %></span><% } %>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-top:4px">
+                      <span class="<%= hot ? 'warn' : 'dim' %>" style="letter-spacing:0.08em"><%= hot ? '◉' : '○' %> <%= hrs %>h<%= mins %>m on stage</span>
+                      <span class="dim" style="font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase">auto</span>
+                    </div>
+                  </a>
+                <% }); %>
+                <% if (hints.length === 0) { %>
+                  <div style="padding:40px;text-align:center;color:var(--phosphor-faint);font-size:12px">queue empty · everyone moving</div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+
+          <!-- PREVIEW -->
+          <div class="pane">
+            <% if (current && currentCh) {
+              var nextLevel = Math.min((current.last_hint || 0) + 1, maxHintLevel);
+              var hintLabel = 'level ' + nextLevel;
+              var costMap = hintCosts;
+              var hrs = Math.floor(current.hours_stuck);
+              var mins = Math.round((current.hours_stuck - hrs) * 60);
+              var emptyCanned = {};
+              hintLevels.forEach(function(l){ emptyCanned['hint' + l] = ''; });
+              var canned = (typeof cannedHints !== 'undefined' && cannedHints) ? cannedHints : emptyCanned;
+              var maxLen = (typeof maxHintBody !== 'undefined') ? maxHintBody : 2000;
+              var seedBody = canned['hint' + nextLevel] || '';
+            %>
+              <form method="post" action="/admin/hint" class="section" style="margin:0" data-hint-form>
+                <input type="hidden" name="user_id" value="<%= current.id %>">
+                <input type="hidden" name="challenge_id" value="<%= currentCh.id %>">
+                <input type="hidden" name="level" value="<%= nextLevel %>" data-hint-level-input>
+                <div class="section-head">
+                  <span class="title">draft · editable</span>
+                  <span class="meta">
+                    <span>queued · <%= hrs %>h<%= mins %>m on stage</span>
+                    <span>auto · 20h+ trigger</span>
+                  </span>
+                </div>
+                <div style="padding:20px 24px;display:grid;grid-template-columns:1fr 280px;gap:24px">
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <div>
+                      <div class="kpi-l">recipient</div>
+                      <div style="font-size:22px;color:var(--chrome);margin-top:4px"><%= current.alias %></div>
+                      <div class="dim" style="font-size:11px;letter-spacing:0.04em;margin-top:2px"><%= current.email %></div>
+                    </div>
+                    <div>
+                      <div class="kpi-l">trial · <%= String(current.current_ordinal).padStart(2,'0') %> of <%= total %></div>
+                      <div style="font-size:16px;color:var(--phosphor);margin-top:4px;letter-spacing:0.02em"><%= currentCh.title %></div>
+                      <div class="dim" style="font-size:11px;letter-spacing:0.06em;margin-top:2px;text-transform:uppercase"><%= currentCh.category %> · <%= currentCh.points %> pts</div>
+                    </div>
+                    <div>
+                      <div class="kpi-l" style="margin-bottom:6px">level · <span data-hint-level-label><%= hintLabel %></span></div>
+                      <div class="seg-radio" style="height:28px" data-hint-level-group>
+                        <% hintLevels.forEach(function(lvl) { %>
+                          <button type="button" data-hint-level="<%= lvl %>" class="<%= nextLevel === lvl ? 'active' : '' %>" aria-pressed="<%= nextLevel === lvl %>">L<%= lvl %> · <%= hintLabels[lvl] %></button>
+                        <% }); %>
+                      </div>
+                      <div class="dim" style="font-size:10.5px;margin-top:6px;letter-spacing:0.06em">cost on send · <span class="warn">−<span data-hint-cost><%= costMap[nextLevel] %></span> pts</span></div>
+                    </div>
+                    <div>
+                      <div class="kpi-l" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline">
+                        <span>hint body · <span data-hint-state>canned · editable</span></span>
+                        <span class="dim" style="font-size:10px;letter-spacing:0.04em"><span data-hint-len>0</span>/<%= maxLen %></span>
+                      </div>
+                      <textarea name="body" rows="6" maxlength="<%= maxLen %>" data-hint-textarea
+                        style="width:100%;box-sizing:border-box;border:1px solid var(--rule);background:rgba(0,0,0,0.5);padding:14px 16px;font-size:12.5px;line-height:1.6;color:var(--phosphor);font-family:inherit;resize:vertical;min-height:120px"><%= seedBody %></textarea>
+                      <div class="dim" style="font-size:10px;margin-top:4px;letter-spacing:0.04em">delivery · email · empty body falls back to canned at send time</div>
+                    </div>
+                  </div>
+
+                  <!-- CONTEXT RAIL -->
+                  <div style="display:flex;flex-direction:column;gap:14px">
+                    <div class="kv">
+                      <div class="k">stage</div>      <div class="v"><%= current.current_ordinal %> of <%= total %></div>
+                      <div class="k">attempts</div>   <div class="v tabular"><%= current.attempts_on_stage || 0 %></div>
+                      <div class="k">hints used</div> <div class="v"><%= current.last_hint || 0 %></div>
+                      <div class="k">tos</div>        <div class="v warn"><%= hrs %>h<%= mins %>m</div>
+                      <% if (currentPlayer) { %>
+                        <div class="k">last adv</div>   <div class="v"><%= currentPlayer.last_advance_at ? new Date(currentPlayer.last_advance_at).toISOString().slice(11,16) : '—' %></div>
+                        <div class="k">total solves</div><div class="v"><%= currentPlayer.solves || 0 %></div>
+                      <% } %>
+                    </div>
+                    <div>
+                      <div class="kpi-l" style="margin-bottom:6px">cohort context</div>
+                      <div class="dim" style="font-size:11px;line-height:1.7;letter-spacing:0.02em">
+                        <span class="chrome"><%= players.filter(function(p){ return (p.current_ordinal||1) > current.current_ordinal; }).length %></span> ops past this trial<br/>
+                        <span class="chrome"><%= players.filter(function(p){ return (p.current_ordinal||1) === current.current_ordinal; }).length %></span> currently on it
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ACTION FOOTER -->
+                <div style="padding:14px 24px;border-top:1px solid var(--phosphor-dim);background:linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7));display:flex;gap:8px;justify-content:flex-end;align-items:center">
+                  <span class="dim" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin-right:auto">draft · operator · <%= adminEmail %></span>
+                  <button type="submit" class="btn sm amber solid">[ approve &amp; send L<span data-hint-level-btn><%= nextLevel %></span> ▸ ]</button>
+                </div>
+              </form>
+              <script id="hint-canned-data" type="application/json"><%- JSON.stringify(canned).replace(/</g, '\\u003c') %></script>
+              <script id="hint-cost-data" type="application/json"><%- JSON.stringify(hintCosts) %></script>
+              <script>
+                (function(){
+                  var dataEl = document.getElementById('hint-canned-data');
+                  var costDataEl = document.getElementById('hint-cost-data');
+                  if (!dataEl) return;
+                  var canned = JSON.parse(dataEl.textContent || '{}');
+                  var costMap = costDataEl ? JSON.parse(costDataEl.textContent || '{}') : {};
+                  var cannedValues = Object.values(canned);
+                  var form = document.querySelector('[data-hint-form]');
+                  if (!form) return;
+                  var ta = form.querySelector('[data-hint-textarea]');
+                  var lvlInput = form.querySelector('[data-hint-level-input]');
+                  var lvlLabel = form.querySelector('[data-hint-level-label]');
+                  var lvlBtn = form.querySelector('[data-hint-level-btn]');
+                  var costEl = form.querySelector('[data-hint-cost]');
+                  var stateEl = form.querySelector('[data-hint-state]');
+                  var lenEl = form.querySelector('[data-hint-len]');
+                  function isCanned(text){
+                    return cannedValues.indexOf(text) !== -1;
+                  }
+                  function refreshState(){
+                    if (!ta) return;
+                    if (lenEl) lenEl.textContent = String(ta.value.length);
+                    if (stateEl) stateEl.textContent = isCanned(ta.value) || ta.value === '' ? 'canned · editable' : 'edited · custom';
+                  }
+                  if (ta) ta.addEventListener('input', refreshState);
+                  refreshState();
+                  var buttons = form.querySelectorAll('[data-hint-level]');
+                  buttons.forEach(function(btn){
+                    btn.addEventListener('click', function(){
+                      var lvl = btn.getAttribute('data-hint-level');
+                      if (lvlInput) lvlInput.value = lvl;
+                      if (lvlLabel) lvlLabel.textContent = 'level ' + lvl;
+                      if (lvlBtn) lvlBtn.textContent = lvl;
+                      if (costEl) costEl.textContent = String(costMap[lvl]);
+                      buttons.forEach(function(b){
+                        var on = b === btn;
+                        b.classList.toggle('active', on);
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                      });
+                      // Only refill the textarea if the operator hasn't typed
+                      // anything custom (i.e. it still matches one of the canned strings).
+                      if (ta && (ta.value === '' || isCanned(ta.value))) {
+                        ta.value = canned['hint' + lvl] || '';
+                        refreshState();
+                      }
+                    });
+                  });
+                })();
+              </script>
+            <% } else { %>
+              <div class="section">
+                <div class="section-head"><span class="title">draft · preview</span></div>
+                <div style="padding:60px;text-align:center;color:var(--phosphor-faint);font-size:12.5px;letter-spacing:0.06em">
+                  <% if (hints.length === 0) { %>queue empty. no operators have triggered the auto-drip thresholds.<% } else { %>select a draft from the queue to preview.<% } %>
+                </div>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('_drawer') %>
+<script src="/static/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [main, dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+# Least privilege: this workflow only reads the repo and runs tests, so deny the
+# default write scopes. Once the repo is public this caps the blast radius of a
+# malicious PR or a compromised third-party action to read-only.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Tests
+        run: npx vitest run
