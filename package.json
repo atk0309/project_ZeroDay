@@ -30,7 +30,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^9.0.1",
     "pngjs": "^7.0.0",
-    "resend": "^6.12.4",
+    "resend": "^6.14.0",
     "tsx": "^4.22.4"
   },
   "devDependencies": {
