@@ -41,6 +41,6 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pngjs": "^6.0.5",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }
