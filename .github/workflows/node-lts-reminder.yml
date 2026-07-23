@@ -1,0 +1,92 @@
+name: Node.js LTS reminder
+
+on:
+  schedule:
+    # Offset from the top of the hour to avoid the busiest Actions window.
+    - cron: '17 07 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: node-lts-reminder
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-node-26:
+    name: Check Node.js 26 LTS status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NODE_MAJOR: '26'
+      TRACKING_ISSUE: '47'
+
+    steps:
+      - name: Check the official Node.js release index
+        id: node
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          releases="$(
+            curl --fail --silent --show-error --location --retry 3 \
+              https://nodejs.org/dist/index.json
+          )"
+          latest_lts="$(
+            jq -r --arg prefix "v${NODE_MAJOR}." \
+              '[.[] | select(.version | startswith($prefix)) | select((.lts | type) == "string")][0].version // empty' \
+              <<< "${releases}"
+          )"
+
+          if [[ -z "${latest_lts}" ]]; then
+            echo "Node.js ${NODE_MAJOR} is not LTS yet."
+            echo "ready=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Node.js ${latest_lts} is marked LTS."
+          echo "ready=true" >> "${GITHUB_OUTPUT}"
+          echo "version=${latest_lts}" >> "${GITHUB_OUTPUT}"
+
+      - name: Notify the tracking issue once
+        if: steps.node.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LTS_VERSION: ${{ steps.node.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          marker='<!-- node-v26-lts-ready -->'
+          issue_state="$(
+            gh issue view "${TRACKING_ISSUE}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json state \
+              --jq '.state'
+          )"
+
+          if [[ "${issue_state}" != "OPEN" ]]; then
+            echo "Tracking issue #${TRACKING_ISSUE} is closed; no reminder needed."
+            exit 0
+          fi
+
+          comments="$(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/issues/${TRACKING_ISSUE}/comments" \
+              --jq '.[].body'
+          )"
+          if grep --fixed-strings --quiet "${marker}" <<< "${comments}"; then
+            echo "The Node.js 26 LTS reminder was already sent."
+            exit 0
+          fi
+
+          body="${marker}
+          @atk0309 Node.js ${LTS_VERSION} is now marked LTS in the official release index.
+
+          Please complete the coordinated runtime, types, CI, container, and documentation upgrade tracked in this issue. Recreate or replace the deferred Dependabot updates so the upgrade uses the latest Node.js 26 LTS release."
+
+          gh issue comment "${TRACKING_ISSUE}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --body "${body}"

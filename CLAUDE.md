@@ -80,6 +80,11 @@ git rebase origin/dev   # resolve conflicts, re-run tests
 
 The `pretest` hook enforces this. Rule of thumb: rebase first, edit second.
 
+`.github/workflows/node-lts-reminder.yml` is a temporary maintenance watcher for
+issue #47. It checks the official Node.js release index daily and mentions the
+owner once an actual v26 release is marked LTS. The reminder is idempotent.
+Remove the workflow as part of the coordinated Node.js 26 upgrade.
+
 ---
 
 ## Adding a new challenge
