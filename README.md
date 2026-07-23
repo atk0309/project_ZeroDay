@@ -11,10 +11,11 @@
 ```
 
 ![CI](https://github.com/atk0309/project_zeroday/actions/workflows/ci.yml/badge.svg)
-![Node](https://img.shields.io/badge/node-%E2%89%A524-43853d)
-![TypeScript](https://img.shields.io/badge/typescript-6.x-3178c6)
+![Node](https://img.shields.io/badge/node-24_LTS-43853d)
+![TypeScript](https://img.shields.io/badge/typescript-7.x-3178c6)
 ![Fastify](https://img.shields.io/badge/fastify-5.x-000000)
 ![SQLite](https://img.shields.io/badge/sqlite-better--sqlite3-003b57)
+![License](https://img.shields.io/badge/license-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/status-prelaunch-39ff14)
 
 </div>
@@ -42,7 +43,8 @@ A multi-subdomain ARG-style hacker treasure hunt for ~10–30 year-11/12 student
 ## Quick start
 
 ```bash
-# Prereqs: Node 24+, sqlite (system lib not needed; better-sqlite3 bundles it).
+# Prereqs: Node 24 LTS plus Python 3, make, and a C++ compiler for
+# the native Argon2 and SQLite modules. Docker avoids the local toolchain.
 
 git clone https://github.com/atk0309/project_zeroday
 cd project_zeroday
@@ -132,13 +134,13 @@ web/static/
   admin.css                      # operator-grade CRT vocabulary
   admin.js                       # drawer fetch, hint dropdowns, 5s feed polling
   consent.css + consent.js       # cookie-consent banner + Clarity gate (injected on public pages)
-.github/workflows/ci.yml # ubuntu-latest, Node 24, type-check + vitest
+.github/                 # CI, Dependabot, issue forms, pull-request template
 docs/                    # operator + challenge-authoring + hosting guides
 ```
 
 ## Tech stack
 
-- **Runtime**: Node 24, TypeScript (ES modules)
+- **Runtime**: Node 24 LTS, TypeScript (ES modules)
 - **Web**: Fastify 5 + `@fastify/{cookie, formbody, view, static, rate-limit}`
 - **DB**: SQLite via `better-sqlite3` (synchronous, plenty for ~30 concurrent players)
 - **Templates**: EJS via `@fastify/view`
@@ -151,13 +153,19 @@ docs/                    # operator + challenge-authoring + hosting guides
 ## Testing
 
 ```bash
-npm test                          # vitest run — pretest hook runs check-base.mjs first
-npm run test:watch                # interactive
-npx tsc -p tsconfig.json --noEmit # type check
-CHECK_BASE_SKIP=1 npm test        # bypass the "is your branch behind dev?" guard
+npm run check              # type check + vitest; pretest runs check-base.mjs
+npm run build              # emit production JavaScript
+npm run audit              # fail on high/critical dependency advisories
+npm run test:watch         # interactive
+CHECK_BASE_SKIP=1 npm test # bypass the "is your branch behind dev?" guard
 ```
 
 `scripts/check-base.mjs` fails the test run if the current `claude/*` branch is behind `origin/dev`. CI sets `CI=true` so the guard skips there. Rule of thumb on a fresh session: rebase on `origin/dev` first, edit second.
+
+CI repeats the locked install, audit, type check, and test suite on Node 24 LTS,
+then builds and HTTP-smoke-tests the production container. Third-party Actions
+and production images are pinned to immutable digests; Dependabot proposes
+compatible updates against `dev`.
 
 ## Status
 
@@ -207,6 +215,6 @@ For the live test count, run `npm test` — vitest reports it.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3) — see [`LICENSE`](LICENSE).
+This project is licensed under the MIT License — see [`LICENSE`](LICENSE).
 
-Copyright (C) 2026 atk0309
+Copyright (c) 2026 atk0309

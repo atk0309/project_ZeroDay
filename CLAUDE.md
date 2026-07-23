@@ -49,18 +49,21 @@ These describe non-obvious load-bearing facts. Re-derive any of these wrong and 
 ## Run it
 
 ```bash
-npm ci                # install
+npm ci                # install (native modules require Python 3, make, and C++)
 npm run migrate       # create + seed SQLite (idempotent)
 npm run dev           # tsx watch on :3000
-npm test              # vitest run — see "test count" note below
-npx tsc -p tsconfig.json --noEmit
+npm run check         # type-check + vitest; see "test count" note below
+npm run build         # emit production JavaScript
+npm run audit         # fail on high/critical dependency advisories
 ```
 
 `npm test` has a `pretest` hook that runs `scripts/check-base.mjs` and **fails if your branch is behind `origin/dev`**. Bypass for one-off cases: `CHECK_BASE_SKIP=1 npm test`. CI sets `CI=true` so the guard is skipped there.
 
 For the current test count, just run `npm test` — vitest reports it. The number changes every PR; don't memorize it from this doc.
 
-CI: `.github/workflows/ci.yml` runs type-check + vitest on `ubuntu-latest` Node 24.
+CI: `.github/workflows/ci.yml` runs a locked install, dependency audit,
+type-check, vitest, and a production-container build plus HTTP smoke test on
+`ubuntu-latest` with Node 24 LTS.
 
 ---
 
