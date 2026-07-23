@@ -32,7 +32,7 @@ A single D-Day clock drives the whole experience. Pre-launch it counts down to *
 
 ## Stack
 
-Fastify 5 + TypeScript 6 + SQLite (`better-sqlite3`), EJS views, argon2 for passwords, vitest for tests, Node 24+. Deploys via Caddy + Docker Compose (see `ops/`) or Railway.
+Fastify 5 + TypeScript 7 + SQLite (`better-sqlite3`), EJS views, argon2 for passwords, vitest for tests, Node 24 LTS. Deploys via Caddy + Docker Compose (see `ops/`) or Railway.
 
 ## Glossary
 

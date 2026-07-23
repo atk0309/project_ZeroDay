@@ -1,23 +1,30 @@
-FROM node:24-bookworm-slim AS deps
+FROM node:24.18.0-bookworm@sha256:5711a0d445a1af54af9589066c646df387d1831a608226f4cd694fc59e745059 AS deps
 WORKDIR /app
-COPY package.json ./
-RUN npm install --no-audit --no-fund
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --no-audit --no-fund
 
-FROM node:24-bookworm-slim AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json tsconfig.json ./
+FROM deps AS build
+COPY tsconfig.json ./
 COPY app ./app
 COPY web ./web
-RUN npx tsc -p tsconfig.json
+RUN npm run build
 
-FROM node:24-bookworm-slim
+FROM deps AS prod-deps
+# Native modules were already compiled under the reviewed install-script policy
+# in the deps stage. Pruning must not invoke lifecycle scripts a second time.
+RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
+LABEL org.opencontainers.image.source="https://github.com/atk0309/project_ZeroDay" \
+      org.opencontainers.image.licenses="MIT"
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY package.json ./
-COPY web ./web
+COPY package.json package-lock.json LICENSE ./
+# import.meta-relative paths in compiled route modules resolve this tree under
+# /app/dist/web, not /app/web.
+COPY web ./dist/web
 # migrate.js reads schema.sql relative to its own location (import.meta.url).
 # In dist that's /app/dist/app/src/db/schema.sql. Without this file additive
 # ALTER TABLE migrations (e.g. cheat_strikes.submitted_flag) never run in
