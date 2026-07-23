@@ -2,8 +2,9 @@ services:
   caddy:
     # Use the Cloudflare-DNS plugin variant. Build from the standard image with
     # xcaddy if you prefer; the public lucaslorentz/caddy-docker-proxy or the
-    # caddy:builder pattern are both fine. This compose uses a prebuilt tag.
-    image: ghcr.io/caddybuilds/caddy-cloudflare:latest
+    # caddy:builder pattern are both fine. Pin the version and digest so a
+    # routine restart cannot silently replace the reverse proxy.
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.4@sha256:62639363ceb043393da9c3895d7c97a9a49ccf840bea0cc7e6479465d12ade96
     restart: unless-stopped
     ports:
       - "80:80"

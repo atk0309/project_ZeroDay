@@ -14,9 +14,13 @@ on:
       - 'docs/**'
       - 'LICENSE'
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Least privilege: this workflow only reads the repo and runs tests, so deny the
-# default write scopes. Once the repo is public this caps the blast radius of a
-# malicious PR or a compromised third-party action to read-only.
+# default write scopes. This caps the blast radius of a malicious PR or a
+# compromised third-party action to read-only.
 permissions:
   contents: read
 
@@ -26,19 +30,56 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Node 24
-        uses: actions/setup-node@v4
+      - name: Setup Node 24.18 LTS
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '24'
+          node-version: '24.18.0'
           cache: 'npm'
 
       - name: Install
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm run audit
+
       - name: Type check
-        run: npx tsc -p tsconfig.json --noEmit
+        run: npm run typecheck
 
       - name: Tests
-        run: npx vitest run
+        run: npm test
+
+      - name: Build production image
+        run: docker build --file ops/Dockerfile --tag zeroday:ci .
+
+      - name: Smoke test production image
+        env:
+          SESSION_SECRET: ci-session-secret-not-for-production
+          FLAG_SECRET: ci-flag-secret-not-for-production
+        run: |
+          docker run --detach --name zeroday-ci \
+            --publish 127.0.0.1:31338:3000 \
+            --env NODE_ENV=production \
+            --env DB_PATH=/data/zeroday.db \
+            --env SESSION_SECRET \
+            --env FLAG_SECRET \
+            --env PUBLIC_ORIGIN=http://127.0.0.1:31338 \
+            zeroday:ci
+
+          cleanup() {
+            docker logs zeroday-ci
+            docker rm --force zeroday-ci >/dev/null
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error \
+              --output /dev/null http://127.0.0.1:31338/; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Production image did not return HTTP 200 within 20 seconds."
+          exit 1

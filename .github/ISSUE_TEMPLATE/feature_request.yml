@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose an improvement to the platform, operator workflow, or challenge framework.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operator, player, or contributor problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the desired behavior and any alternatives you considered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Operational and security impact
+      description: Note effects on deployment, stored data, authentication, anti-cheat behavior, or existing challenges.
+    validations:
+      required: true

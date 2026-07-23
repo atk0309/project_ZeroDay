@@ -7,7 +7,9 @@ Production will eventually move to a Hetzner VPS; nothing here locks us in.
 ## What's wired in the repo
 
 - `npm start` runs `tsx app/src/db/migrate.ts && tsx app/src/server.ts`. Migrate is idempotent (every `CREATE` uses `IF NOT EXISTS`), so it's safe on every boot.
-- `tsx` is a runtime dependency, so Nixpacks needs no build step — install deps, `npm start`, done.
+- `tsx` is a runtime dependency, so Nixpacks needs no explicit application
+  build step — install deps, `npm start`, done. `npm ci` does compile the
+  native Argon2 and SQLite modules during installation.
 - `app/src/db/index.ts` reads `DB_PATH` (default `./data/zeroday.db`). Railway's volume mounts at `/data` and we point `DB_PATH=/data/zeroday.db` so SQLite survives redeploys.
 - `app/src/server.ts` already binds `0.0.0.0` and reads `PORT` — both required by Railway.
 

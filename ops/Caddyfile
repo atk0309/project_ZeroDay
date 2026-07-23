@@ -3,7 +3,6 @@
 #
 # Single-origin: every *.example.com host is reverse-proxied to the same app.
 # The app picks behavior off the Host header.
-
 {
 	email admin@example.com
 	# Use a Cloudflare-provided wildcard cert for *.example.com.
@@ -16,7 +15,6 @@
 	reverse_proxy app:3000 {
 		header_up Host {host}
 		header_up X-Real-IP {remote}
-		header_up X-Forwarded-For {remote}
 	}
 }
 
