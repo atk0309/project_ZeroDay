@@ -4,7 +4,7 @@ services:
     # xcaddy if you prefer; the public lucaslorentz/caddy-docker-proxy or the
     # caddy:builder pattern are both fine. Pin the version and digest so a
     # routine restart cannot silently replace the reverse proxy.
-    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.4@sha256:62639363ceb043393da9c3895d7c97a9a49ccf840bea0cc7e6479465d12ade96
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.6@sha256:3d6e5b2dd1dba7c921f0965b181a2dc0bfea4a9183e72638db186c22a277bbea
     restart: unless-stopped
     ports:
       - "80:80"
