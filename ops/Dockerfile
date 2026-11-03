@@ -1,4 +1,4 @@
-FROM node:24.18.0-bookworm@sha256:5711a0d445a1af54af9589066c646df387d1831a608226f4cd694fc59e745059 AS deps
+FROM node:24.20.0-bookworm@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --no-audit --no-fund
@@ -14,7 +14,7 @@ FROM deps AS prod-deps
 # in the deps stage. Pruning must not invoke lifecycle scripts a second time.
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
 
-FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d AS runtime
+FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 LABEL org.opencontainers.image.source="https://github.com/atk0309/project_ZeroDay" \
