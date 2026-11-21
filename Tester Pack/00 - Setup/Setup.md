@@ -6,13 +6,13 @@ Boot a clean local dev instance, become admin, configure the game, and sign up a
 
 ## Prereqs
 
-- Node `>=24` (CI runs Node 24; older Node may work but isn't tested).
-- `npm` 10+.
+- Node 24.x (`engines` is `24.x`; CI and the Docker image run 24.22.3). Node 26 isn't supported yet — see issue #47.
+- The npm bundled with Node 24 (npm 11). npm 10 ignores the repo's install-script allow-list.
 - SQLite is bundled by `better-sqlite3` — no system lib install needed.
 
 ```bash
 node --version       # v24.x
-npm --version        # 10.x
+npm --version        # 11.x
 ```
 
 ---

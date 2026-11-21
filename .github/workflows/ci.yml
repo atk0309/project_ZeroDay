@@ -7,12 +7,11 @@ on:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
+  # No paths-ignore on PRs: main's ruleset requires the `test` check, and a
+  # path-skipped workflow never reports it, so a docs-only PR would wait on
+  # "Expected" forever.
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

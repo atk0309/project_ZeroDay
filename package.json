@@ -5,7 +5,7 @@
   "description": "example.com ARG hacker hunt — sequential challenges with D-Day countdown",
   "license": "MIT",
   "type": "module",
-  "packageManager": "npm@11.16.0",
+  "packageManager": "npm@11.19.1",
   "scripts": {
     "dev": "tsx watch app/src/server.ts",
     "build": "tsc -p tsconfig.json",
@@ -24,7 +24,7 @@
   },
   "allowScripts": {
     "argon2": true,
-    "better-sqlite3": true,
+    "better-sqlite3": false,
     "esbuild": true,
     "fsevents": false
   },
@@ -48,7 +48,6 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/ejs": "^3.1.5",
     "@types/node": "^24.19.2",
-    "@types/nodemailer": "^8.0.2",
     "@types/pngjs": "^6.0.5",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"

@@ -43,8 +43,9 @@ A multi-subdomain ARG-style hacker treasure hunt for ~10–30 year-11/12 student
 ## Quick start
 
 ```bash
-# Prereqs: Node 24 LTS plus Python 3, make, and a C++ compiler for
-# the native Argon2 and SQLite modules. Docker avoids the local toolchain.
+# Prereqs: Node 24 LTS. Argon2 and SQLite ship prebuilt binaries; Python 3,
+# make, and a C++ compiler are only needed if Argon2 has none for your
+# platform. Docker avoids the local toolchain.
 
 git clone https://github.com/atk0309/project_zeroday
 cd project_zeroday

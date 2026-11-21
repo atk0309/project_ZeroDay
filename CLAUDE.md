@@ -49,7 +49,7 @@ These describe non-obvious load-bearing facts. Re-derive any of these wrong and 
 ## Run it
 
 ```bash
-npm ci                # install (native modules require Python 3, make, and C++)
+npm ci                # install (argon2 needs Python 3, make, C++ only if no prebuild matches)
 npm run migrate       # create + seed SQLite (idempotent)
 npm run dev           # tsx watch on :3000
 npm run check         # type-check + vitest; see "test count" note below
@@ -65,7 +65,9 @@ CI: `.github/workflows/ci.yml` runs a locked install, dependency audit,
 type-check, vitest, and a production-container build plus HTTP smoke test on
 `ubuntu-latest` with Node 24 LTS.
 
-**Install scripts are allow-listed.** `.npmrc` sets `strict-allow-scripts=true`, so `npm ci` refuses any package with install scripts that isn't named in `package.json#allowScripts`. The native modules (`argon2`, `better-sqlite3`, and `esbuild` via `tsx`/`vitest`) are listed **by bare name, not `name@version`** — npm accepts only exact versions or bare names there, and exact pins made every Dependabot bump of a native module fail `npm ci` with `ESTRICTALLOWSCRIPTS`. If a new dependency needs install scripts, review it, then add its bare name.
+**Install scripts are allow-listed — with one gap you must know about.** `.npmrc` sets `strict-allow-scripts=true`, so `npm ci` refuses any package whose lockfile entry has `hasInstallScript` (an explicit `preinstall`/`install`/`postinstall`) unless `package.json#allowScripts` names it. `argon2` and `esbuild` (via `tsx`/`vitest`) are allowed **by bare name, not `name@version`**: npm accepts only exact versions or bare names there, and exact pins made every Dependabot bump fail `npm ci` with `ESTRICTALLOWSCRIPTS`.
+
+The gap: a package with **no** install script but a `binding.gyp` (better-sqlite3 ≥ 13.2 is one — it ships `"gypfile": false`) has no `hasInstallScript` in the lockfile, so the strict check never sees it, yet npm still runs an implicit `node-gyp rebuild` that executes code from `binding.gyp`. Allowing such a package by name changes nothing; only `false` stops that code from running. `better-sqlite3` is therefore set to **`false`** and loads the prebuilt binary it ships in `prebuilds/` (Linux glibc/musl, macOS and Windows on x64/arm64). Before adding a native dependency, check it for `binding.gyp` as well as install scripts, and set it to `true` or `false` explicitly.
 
 ---
 
@@ -83,11 +85,13 @@ git rebase origin/main   # resolve conflicts, re-run tests
 The `pretest` hook enforces this. Rule of thumb: rebase first, edit second.
 
 `.github/workflows/node-lts-reminder.yml` is a temporary maintenance watcher for
-issue #47. It checks the official Node.js release index daily and mentions the
-owner once an actual v26 release is marked LTS. The reminder is idempotent.
-Until then, `.github/dependabot.yml` ignores major bumps of `@types/node` and
-the `node` container image. As part of the coordinated Node.js 26 upgrade,
-remove the workflow **and** those two `ignore` blocks.
+issue #47. Its condition is already met: Node.js 26 was marked LTS on
+2026-10-28 and the one-shot reminder posted on #47 the next day (it is
+idempotent, so it now runs as a daily no-op). The project deliberately stays on
+Node 24 until someone does the coordinated #47 upgrade. Until that lands,
+`.github/dependabot.yml` ignores major bumps of `@types/node` and the `node`
+container image so Dependabot doesn't open piecemeal Node 26 PRs. As part of
+the upgrade, remove the workflow **and** those two `ignore` blocks.
 
 ---
 

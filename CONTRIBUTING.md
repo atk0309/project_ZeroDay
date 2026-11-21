@@ -15,7 +15,9 @@ You need:
 
 - Node.js 24 LTS (CI currently uses 24.22.3)
 - the npm version bundled with Node.js
-- Python 3, `make`, and a C++ compiler for the native Argon2 and SQLite modules
+- Python 3, `make`, and a C++ compiler — only needed if Argon2 has no prebuilt
+  binary for your platform. better-sqlite3 always uses the prebuilt binary it
+  ships (its install-time build is disabled; see `CLAUDE.md`).
 
 Then:
 

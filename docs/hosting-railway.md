@@ -9,8 +9,9 @@ Production will eventually move to a Hetzner VPS; nothing here locks us in.
 
 - `npm start` runs `tsx app/src/db/migrate.ts && tsx app/src/server.ts`. Migrate is idempotent (every `CREATE` uses `IF NOT EXISTS`), so it's safe on every boot.
 - `tsx` is a runtime dependency, so Nixpacks needs no explicit application
-  build step — install deps, `npm start`, done. `npm ci` does compile the
-  native Argon2 and SQLite modules during installation.
+  build step — install deps, `npm start`, done. Argon2 and better-sqlite3 ship
+  prebuilt Linux binaries, so `npm ci` normally compiles nothing (Argon2 falls
+  back to a source build if no prebuild matches).
 - `app/src/db/index.ts` reads `DB_PATH` (default `./data/zeroday.db`). Railway's volume mounts at `/data` and we point `DB_PATH=/data/zeroday.db` so SQLite survives redeploys.
 - `app/src/server.ts` already binds `0.0.0.0` and reads `PORT` — both required by Railway.
 
@@ -112,8 +113,9 @@ Checklist:
    the volume exists, data should survive — but `DB_PATH` is still the
    recommended explicit form.
 
-After any of those changes, redeploy once, configure the admin console, push
-a trivial commit (e.g. a README typo) to trigger another deploy, and confirm
+After any of those changes, redeploy once, configure the admin console, trigger
+another deploy (Deployments → ⋯ → Redeploy; `main` is protected, so don't push
+a throwaway commit for this), and confirm
 the admin password and timing settings still work after the redeploy. That
 round-trip is the only real proof the volume is wired.
 
