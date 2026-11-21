@@ -147,7 +147,7 @@ docs/                    # operator + challenge-authoring + hosting guides
 - **Auth**: argon2id for the admin password; HMAC-SHA256 for per-player flags
 - **Mail**: Resend (HTTP API) or SMTP (nodemailer) — chosen at runtime via admin console
 - **Cron**: `node-cron` (09:00 stuck-detection)
-- **Tests**: vitest 4 with `app.inject()` for end-to-end-ish HTTP tests
+- **Tests**: vitest 5 with `app.inject()` for end-to-end-ish HTTP tests
 - **Ops**: Caddy (wildcard TLS via Cloudflare DNS-01) + Docker Compose, or Railway
 
 ## Testing
@@ -157,15 +157,15 @@ npm run check              # type check + vitest; pretest runs check-base.mjs
 npm run build              # emit production JavaScript
 npm run audit              # fail on high/critical dependency advisories
 npm run test:watch         # interactive
-CHECK_BASE_SKIP=1 npm test # bypass the "is your branch behind dev?" guard
+CHECK_BASE_SKIP=1 npm test # bypass the "is your branch behind main?" guard
 ```
 
-`scripts/check-base.mjs` fails the test run if the current `claude/*` branch is behind `origin/dev`. CI sets `CI=true` so the guard skips there. Rule of thumb on a fresh session: rebase on `origin/dev` first, edit second.
+`scripts/check-base.mjs` fails the test run if the current feature branch is behind `origin/main`. CI sets `CI=true` so the guard skips there. Rule of thumb on a fresh session: rebase on `origin/main` first, edit second.
 
 CI repeats the locked install, audit, type check, and test suite on Node 24 LTS,
 then builds and HTTP-smoke-tests the production container. Third-party Actions
 and production images are pinned to immutable digests; Dependabot proposes
-compatible updates against `dev`.
+compatible updates against `main`.
 
 ## Status
 

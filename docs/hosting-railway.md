@@ -1,6 +1,7 @@
 # Hosting on Railway
 
-Two-environment setup: `main` → production, `dev` → staging. Predictable
+`main` → production, plus an optional staging environment for previewing a
+feature branch before it merges. Predictable
 ~$5/mo flat bill on the Hobby plan, no platform-specific files in the repo.
 Production will eventually move to a Hetzner VPS; nothing here locks us in.
 
@@ -45,11 +46,11 @@ Cloudflare proxy mode (orange cloud) means Cloudflare terminates TLS at the edge
 
 ## 3. Staging environment
 
-Once production is healthy, fork a second environment so iteration on `dev` doesn't risk the live URL.
+Optional. Once production is healthy, fork a second environment so you can preview a feature branch without risking the live URL. There is no long-lived `dev` branch any more: point staging at whichever branch you want to try out, and switch it back (or leave it idle) afterwards.
 
 | | `production` | `staging` |
 |---|---|---|
-| Branch | `main` | `dev` |
+| Branch | `main` | the feature branch under review |
 | URL | `hack.example.com` | the auto `*.up.railway.app` |
 | Volume | prod volume | **separate** volume |
 | `FLAG_SECRET` / `SESSION_SECRET` | real | **different** values |
@@ -62,7 +63,7 @@ Once production is healthy, fork a second environment so iteration on `dev` does
 **Dashboard steps:**
 
 1. Project page → "+ New Environment" → name `staging` → "Fork from production" (copies vars over as a starting point).
-2. Service → Settings → Source → change deploy branch to `dev`.
+2. Service → Settings → Source → change deploy branch to the feature branch you want to preview. Repeat this step whenever you want to preview a different branch.
 3. Service → Volumes → New Volume, mount `/data`, 1GB. The forked env does *not* inherit the prod volume — confirm only one mount exists and it's the new one.
 4. Service → Variables → regenerate `FLAG_SECRET` and `SESSION_SECRET` (different long random strings from prod). Change `PUBLIC_ORIGIN` to the staging railway.app URL.
 5. Service → Settings → Networking → Generate Domain to get the staging URL. (Skip custom domain — see next section for why.)
@@ -150,10 +151,10 @@ account — turn on 2FA.
 
 ## 5. Iterate workflow
 
-- I push to `dev` → staging redeploys in ~60s → you test on the staging URL.
-- When `dev` looks good, you merge `dev → main` via a GitHub PR. **Use "Create a merge commit" or "Rebase and merge" — not "Squash and merge"** — so the `dev` branch stays in sync with `main` after the merge (squash creates a new commit hash and `dev` would diverge in history even though contents match).
-- After each merge to `main`, fast-forward `dev`: `git checkout dev && git merge --ff-only origin/main && git push`. (I'll do this when working from this session.)
-- Risky/experimental work happens on short-lived feature branches off `dev`, PR'd into `dev`, never directly into `main`.
+- Work happens on short-lived feature branches cut from `main`.
+- Open a PR into `main`. CI (audit, type-check, tests, production image build + HTTP smoke test) must be green; `main` is protected, so nothing lands without a PR.
+- To try a change on real infrastructure before merging, point the staging environment's deploy branch at the feature branch (see §3) — it redeploys in ~60s.
+- Merging the PR into `main` redeploys production.
 
 If a deploy goes wrong, dashboard has full deploy logs; runtime logs stream live in the same view.
 

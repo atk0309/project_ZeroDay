@@ -57,7 +57,7 @@ npm run build         # emit production JavaScript
 npm run audit         # fail on high/critical dependency advisories
 ```
 
-`npm test` has a `pretest` hook that runs `scripts/check-base.mjs` and **fails if your branch is behind `origin/dev`**. Bypass for one-off cases: `CHECK_BASE_SKIP=1 npm test`. CI sets `CI=true` so the guard is skipped there.
+`npm test` has a `pretest` hook that runs `scripts/check-base.mjs` and **fails if your branch is behind `origin/main`**. Bypass for one-off cases: `CHECK_BASE_SKIP=1 npm test`. CI sets `CI=true` so the guard is skipped there.
 
 For the current test count, just run `npm test` — vitest reports it. The number changes every PR; don't memorize it from this doc.
 
@@ -65,17 +65,19 @@ CI: `.github/workflows/ci.yml` runs a locked install, dependency audit,
 type-check, vitest, and a production-container build plus HTTP smoke test on
 `ubuntu-latest` with Node 24 LTS.
 
+**Install scripts are allow-listed.** `.npmrc` sets `strict-allow-scripts=true`, so `npm ci` refuses any package with install scripts that isn't named in `package.json#allowScripts`. The native modules (`argon2`, `better-sqlite3`, and `esbuild` via `tsx`/`vitest`) are listed **by bare name, not `name@version`** — npm accepts only exact versions or bare names there, and exact pins made every Dependabot bump of a native module fail `npm ci` with `ESTRICTALLOWSCRIPTS`. If a new dependency needs install scripts, review it, then add its bare name.
+
 ---
 
 ## Branch flow — read before your first commit
 
-Feature branches target **`dev`**, never `main`. Flow: `claude/<topic>` → PR into `dev` → after staging looks good, separate PR promotes `dev` → `main`.
+`main` is the only long-lived branch, and it is protected. Flow: `claude/<topic>` (or whatever branch the harness hands you) → PR into `main` → CI green → merge. There is no `dev` integration branch any more; don't target it, and don't recreate it. Dependabot PRs also target `main`.
 
-**The first thing every session does on a `claude/*` branch is sync to `origin/dev`.** The harness sometimes hands over branches cut from `main`; those are silently behind dev by whatever has merged in between, and any baseline you measure (test count, file shape, route list) will disagree with CI.
+**The first thing every session does is sync to `origin/main`.** A branch cut from an older `main` is silently behind whatever has merged since, and any baseline you measure (test count, file shape, route list) will disagree with CI.
 
 ```bash
-git fetch origin dev
-git rebase origin/dev   # resolve conflicts, re-run tests
+git fetch origin main
+git rebase origin/main   # resolve conflicts, re-run tests
 ```
 
 The `pretest` hook enforces this. Rule of thumb: rebase first, edit second.
@@ -83,7 +85,9 @@ The `pretest` hook enforces this. Rule of thumb: rebase first, edit second.
 `.github/workflows/node-lts-reminder.yml` is a temporary maintenance watcher for
 issue #47. It checks the official Node.js release index daily and mentions the
 owner once an actual v26 release is marked LTS. The reminder is idempotent.
-Remove the workflow as part of the coordinated Node.js 26 upgrade.
+Until then, `.github/dependabot.yml` ignores major bumps of `@types/node` and
+the `node` container image. As part of the coordinated Node.js 26 upgrade,
+remove the workflow **and** those two `ignore` blocks.
 
 ---
 
@@ -138,7 +142,7 @@ These are the paths worth knowing because they cross multiple files or have subt
 
 ## Testing
 
-- vitest 4, `pool: 'forks'`, `isolate: true` — each test file gets fresh module state and its own DB.
+- vitest 5, `pool: 'forks'`, `isolate: true` — each test file gets fresh module state and its own DB.
 - `app/test/setup.ts` is a `setupFiles` entry that sets `DB_PATH` to a tmpdir and applies the schema *before* any test module under test imports.
 - `app/test/helpers.ts:applySchema` is a no-op stub kept for ergonomics.
 - Use `await build()` from `app/src/server.ts` and `app.inject({...})`. **Always include `'content-type': 'application/x-www-form-urlencoded'`** when injecting a form-encoded payload — `@fastify/formbody` returns 415 otherwise.
@@ -170,7 +174,7 @@ These are the paths worth knowing because they cross multiple files or have subt
 
 ## Documentation pass — required before saying "done"
 
-**Every code change that ships to `dev` must include a documentation pass.** Stale docs are worse than no docs.
+**Every code change that ships to `main` must include a documentation pass.** Stale docs are worse than no docs.
 
 1. Walk this checklist. Each line is trigger → file:
    - New table / column / migration → "Schema gotchas" above.

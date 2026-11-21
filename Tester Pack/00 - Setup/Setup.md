@@ -22,8 +22,6 @@ npm --version        # 10.x
 ```bash
 git clone https://github.com/atk0309/project_zeroday
 cd project_zeroday
-git fetch origin dev
-git checkout dev
 npm ci
 ```
 

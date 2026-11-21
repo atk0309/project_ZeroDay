@@ -1,14 +1,23 @@
 version: 2
+# All update PRs target the default branch (`main`). There is no `dev`
+# integration branch any more — see "Branch flow" in CLAUDE.md.
+#
+# Node.js stays on the 24 LTS line until the coordinated Node 26 upgrade in
+# issue #47. Major bumps of the runtime image and `@types/node` are ignored
+# here so Dependabot doesn't reopen the deferred PRs; delete both `ignore`
+# blocks as part of that upgrade.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    target-branch: "dev"
     versioning-strategy: "increase"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "06:00"
       timezone: "Europe/London"
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         patterns:
@@ -19,7 +28,6 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -35,12 +43,14 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/ops"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "06:30"
       timezone: "Europe/London"
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     groups:
       container-images-minor-and-patch:
         patterns:
@@ -51,7 +61,6 @@ updates:
 
   - package-ecosystem: "docker-compose"
     directory: "/ops"
-    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
