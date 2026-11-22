@@ -49,7 +49,7 @@ These describe non-obvious load-bearing facts. Re-derive any of these wrong and 
 ## Run it
 
 ```bash
-npm ci                # install (native modules require Python 3, make, and C++)
+npm ci                # install (argon2 needs Python 3, make, C++ only if no prebuild matches)
 npm run migrate       # create + seed SQLite (idempotent)
 npm run dev           # tsx watch on :3000
 npm run check         # type-check + vitest; see "test count" note below
@@ -57,7 +57,7 @@ npm run build         # emit production JavaScript
 npm run audit         # fail on high/critical dependency advisories
 ```
 
-`npm test` has a `pretest` hook that runs `scripts/check-base.mjs` and **fails if your branch is behind `origin/dev`**. Bypass for one-off cases: `CHECK_BASE_SKIP=1 npm test`. CI sets `CI=true` so the guard is skipped there.
+`npm test` has a `pretest` hook that runs `scripts/check-base.mjs` and **fails if your branch is behind `origin/main`**. Bypass for one-off cases: `CHECK_BASE_SKIP=1 npm test`. CI sets `CI=true` so the guard is skipped there.
 
 For the current test count, just run `npm test` — vitest reports it. The number changes every PR; don't memorize it from this doc.
 
@@ -65,25 +65,33 @@ CI: `.github/workflows/ci.yml` runs a locked install, dependency audit,
 type-check, vitest, and a production-container build plus HTTP smoke test on
 `ubuntu-latest` with Node 24 LTS.
 
+**Install scripts are allow-listed — with one gap you must know about.** `.npmrc` sets `strict-allow-scripts=true`, so `npm ci` refuses any package whose lockfile entry has `hasInstallScript` (an explicit `preinstall`/`install`/`postinstall`) unless `package.json#allowScripts` names it. `argon2` and `esbuild` (via `tsx`/`vitest`) are allowed **by bare name, not `name@version`**: npm accepts only exact versions or bare names there, and exact pins made every Dependabot bump fail `npm ci` with `ESTRICTALLOWSCRIPTS`.
+
+The gap: a package with **no** install script but a `binding.gyp` (better-sqlite3 ≥ 13.2 is one — it ships `"gypfile": false`) has no `hasInstallScript` in the lockfile, so the strict check never sees it, yet npm still runs an implicit `node-gyp rebuild` that executes code from `binding.gyp`. Allowing such a package by name changes nothing; only `false` stops that code from running. `better-sqlite3` is therefore set to **`false`** and loads the prebuilt binary it ships in `prebuilds/` (Linux glibc/musl, macOS and Windows on x64/arm64). Before adding a native dependency, check it for `binding.gyp` as well as install scripts, and set it to `true` or `false` explicitly.
+
 ---
 
 ## Branch flow — read before your first commit
 
-Feature branches target **`dev`**, never `main`. Flow: `claude/<topic>` → PR into `dev` → after staging looks good, separate PR promotes `dev` → `main`.
+`main` is the only long-lived branch, and it is protected. Flow: `claude/<topic>` (or whatever branch the harness hands you) → PR into `main` → CI green → merge. There is no `dev` integration branch any more; don't target it, and don't recreate it. Dependabot PRs also target `main`.
 
-**The first thing every session does on a `claude/*` branch is sync to `origin/dev`.** The harness sometimes hands over branches cut from `main`; those are silently behind dev by whatever has merged in between, and any baseline you measure (test count, file shape, route list) will disagree with CI.
+**The first thing every session does is sync to `origin/main`.** A branch cut from an older `main` is silently behind whatever has merged since, and any baseline you measure (test count, file shape, route list) will disagree with CI.
 
 ```bash
-git fetch origin dev
-git rebase origin/dev   # resolve conflicts, re-run tests
+git fetch origin main
+git rebase origin/main   # resolve conflicts, re-run tests
 ```
 
 The `pretest` hook enforces this. Rule of thumb: rebase first, edit second.
 
 `.github/workflows/node-lts-reminder.yml` is a temporary maintenance watcher for
-issue #47. It checks the official Node.js release index daily and mentions the
-owner once an actual v26 release is marked LTS. The reminder is idempotent.
-Remove the workflow as part of the coordinated Node.js 26 upgrade.
+issue #47. Its condition is already met: Node.js 26 was marked LTS on
+2026-10-28 and the one-shot reminder posted on #47 the next day (it is
+idempotent, so it now runs as a daily no-op). The project deliberately stays on
+Node 24 until someone does the coordinated #47 upgrade. Until that lands,
+`.github/dependabot.yml` ignores major bumps of `@types/node` and the `node`
+container image so Dependabot doesn't open piecemeal Node 26 PRs. As part of
+the upgrade, remove the workflow **and** those two `ignore` blocks.
 
 ---
 
@@ -138,7 +146,7 @@ These are the paths worth knowing because they cross multiple files or have subt
 
 ## Testing
 
-- vitest 4, `pool: 'forks'`, `isolate: true` — each test file gets fresh module state and its own DB.
+- vitest 5, `pool: 'forks'`, `isolate: true` — each test file gets fresh module state and its own DB.
 - `app/test/setup.ts` is a `setupFiles` entry that sets `DB_PATH` to a tmpdir and applies the schema *before* any test module under test imports.
 - `app/test/helpers.ts:applySchema` is a no-op stub kept for ergonomics.
 - Use `await build()` from `app/src/server.ts` and `app.inject({...})`. **Always include `'content-type': 'application/x-www-form-urlencoded'`** when injecting a form-encoded payload — `@fastify/formbody` returns 415 otherwise.
@@ -170,7 +178,7 @@ These are the paths worth knowing because they cross multiple files or have subt
 
 ## Documentation pass — required before saying "done"
 
-**Every code change that ships to `dev` must include a documentation pass.** Stale docs are worse than no docs.
+**Every code change that ships to `main` must include a documentation pass.** Stale docs are worse than no docs.
 
 1. Walk this checklist. Each line is trigger → file:
    - New table / column / migration → "Schema gotchas" above.

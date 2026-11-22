@@ -13,16 +13,17 @@ Do not open a public issue for a suspected vulnerability. Follow
 
 You need:
 
-- Node.js 24 LTS (CI currently uses 24.18.0)
+- Node.js 24 LTS (CI currently uses 24.22.3)
 - the npm version bundled with Node.js
-- Python 3, `make`, and a C++ compiler for the native Argon2 and SQLite modules
+- Python 3, `make`, and a C++ compiler — only needed if Argon2 has no prebuilt
+  binary for your platform. better-sqlite3 always uses the prebuilt binary it
+  ships (its install-time build is disabled; see `CLAUDE.md`).
 
 Then:
 
 ```bash
 git clone https://github.com/atk0309/project_ZeroDay.git
 cd project_ZeroDay
-git switch dev
 npm ci
 npm run check
 npm run build
@@ -33,15 +34,16 @@ toolchain locally.
 
 ## Branch and pull-request flow
 
-1. Create a short-lived branch from `dev`.
+1. Create a short-lived branch from an up-to-date `main`.
 2. Keep the change focused and add or update tests.
 3. Run `npm run check`, `npm run build`, and `npm run audit`.
 4. Update documentation when behavior, configuration, routes, or operational
    steps change.
-5. Open the pull request against `dev`, not `main`.
+5. Open the pull request against `main`.
 
-`main` is the production branch. Changes reach it through a separate promotion
-pull request from `dev`.
+`main` is the only long-lived branch and is protected: changes reach it only
+through a pull request with green CI. There is no separate `dev` integration
+branch.
 
 ## Project conventions
 

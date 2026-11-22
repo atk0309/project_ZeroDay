@@ -28,4 +28,4 @@ Out of scope:
 
 ## Supported versions
 
-Active development happens on `dev`; `main` tracks the latest released build. Security fixes are applied to `dev` and promoted to `main`. There is no separate maintenance branch — older revisions are not patched.
+Development and security fixes land on `main` through pull requests; `main` is what is deployed. There is no separate maintenance branch — older revisions are not patched.

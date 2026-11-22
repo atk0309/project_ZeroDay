@@ -86,7 +86,7 @@ After this submit:
 - **Lost a fragment** — replay the relevant challenge. The fragments in `lib/gibson.ts` are static constants, so re-solving #7/#13/#17 reproduces them. (The flags themselves are per-player; the GIBSON fragments are global.)
 - **Confusing fragment ordering** — order matters. k1 is from #7, k2 from #13, k3 from #17. Swapping any two breaks the AES key.
 - **Submitting a fragment as the flag** — the fragments aren't `ZERODAY{...}`-shaped. The flag comes from the *decrypted plaintext*, line 2.
-- **`gibson key parts not all wired (expected 48 hex chars)`** — only happens on a misconfigured deployment where one of the three fragments is still a placeholder. On `dev`/`main` this should never trip; the `/admin/setup` review panel confirms 3/3.
+- **`gibson key parts not all wired (expected 48 hex chars)`** — only happens on a misconfigured deployment where one of the three fragments is still a placeholder. On `main` this should never trip; the `/admin/setup` review panel confirms 3/3.
 
 ## Verification (admin side)
 
